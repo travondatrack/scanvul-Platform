@@ -1,0 +1,23 @@
+{
+  "home": {
+    "title": "CodeGuard AI",
+    "subtitle": "Hybrid vulnerability scanning for modern codebases",
+    "sourceType": "Source Type",
+    "sourceValue": "Source Value",
+    "submit": "Start Scan",
+    "uploadFile": "Upload Archive",
+    "pasteHint": "Paste JSON array of files: [{\"path\":\"src/a.ts\",\"content\":\"...\"}]",
+    "repoHint": "https://github.com/org/repo",
+    "scanHistory": "Recent Scans",
+    "status": "Status",
+    "risk": "Risk"
+  },
+  "scan": {
+    "severity": "Severity Breakdown",
+    "heatmap": "Vulnerable File Heatmap",
+    "findings": "Findings",
+    "newScan": "New Scan",
+    "publishBadge": "Publish Badge",
+    "copyBadge": "Copy Badge URL"
+  }
+}

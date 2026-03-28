@@ -1,0 +1,33 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: #f3f9ff;
+  --bg-dark: #071726;
+  --card: #ffffff;
+  --card-dark: #0f2233;
+  --text: #0e1a2b;
+  --text-dark: #d8e8ff;
+}
+
+body {
+  min-height: 100vh;
+  color: var(--text);
+  background: radial-gradient(
+    circle at 20% 10%,
+    #d9f0ff 0%,
+    #f3f9ff 50%,
+    #eef6ff 100%
+  );
+}
+
+.dark body {
+  color: var(--text-dark);
+  background: radial-gradient(
+    circle at 20% 10%,
+    #0a2438 0%,
+    #071726 50%,
+    #040e17 100%
+  );
+}

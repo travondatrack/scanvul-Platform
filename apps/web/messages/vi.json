@@ -1,0 +1,23 @@
+{
+  "home": {
+    "title": "CodeGuard AI",
+    "subtitle": "Quet lo hong bao mat hybrid cho codebase hien dai",
+    "sourceType": "Loai dau vao",
+    "sourceValue": "Gia tri dau vao",
+    "submit": "Bat dau quet",
+    "uploadFile": "Tai len tep archive",
+    "pasteHint": "Dan mang JSON file: [{\"path\":\"src/a.ts\",\"content\":\"...\"}]",
+    "repoHint": "https://github.com/org/repo",
+    "scanHistory": "Lich su quet gan day",
+    "status": "Trang thai",
+    "risk": "Rui ro"
+  },
+  "scan": {
+    "severity": "Thong ke muc do",
+    "heatmap": "Ban do nhiet tep loi",
+    "findings": "Danh sach loi",
+    "newScan": "Quet moi",
+    "publishBadge": "Tao badge cong khai",
+    "copyBadge": "Sao chep link badge"
+  }
+}

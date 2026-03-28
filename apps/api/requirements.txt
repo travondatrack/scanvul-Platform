@@ -1,0 +1,17 @@
+fastapi==0.115.6
+uvicorn[standard]==0.32.1
+pydantic==2.10.3
+pydantic-settings==2.7.0
+sqlalchemy==2.0.36
+psycopg[binary]==3.2.3
+alembic==1.14.0
+python-multipart==0.0.17
+redis==5.2.0
+celery==5.4.0
+slowapi==0.1.9
+boto3==1.35.76
+httpx==0.28.1
+reportlab==4.2.5
+orjson==3.10.12
+bandit==1.8.2
+semgrep==1.112.0
