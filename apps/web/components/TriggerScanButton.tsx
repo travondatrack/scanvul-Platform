@@ -32,7 +32,7 @@ export default function TriggerScanButton({ projectId, repoUrl }: { projectId: s
     <button
       onClick={handleTriggerScan}
       disabled={isScanning || !repoUrl}
-      className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-500 disabled:bg-zinc-800 disabled:text-zinc-500 text-white px-4 py-2.5 rounded-xl font-medium transition-all shadow-lg shadow-blue-500/20 active:scale-[0.98]"
+      className="flex items-center space-x-2 bg-brand hover:opacity-90 disabled:bg-slate-200 disabled:text-slate-400 dark:disabled:bg-zinc-800 dark:disabled:text-zinc-500 text-white px-4 py-2.5 rounded-xl font-medium transition-all shadow-sm dark:shadow-lg dark:shadow-brand/20 active:scale-[0.98]"
     >
       {isScanning ? (
         <Loader2 className="w-5 h-5 animate-spin" />

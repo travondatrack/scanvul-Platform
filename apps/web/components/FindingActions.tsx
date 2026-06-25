@@ -33,8 +33,8 @@ export default function FindingActions({ findingId, initialStatus }: { findingId
   if (status === "false_positive") {
     return (
       <div className="flex items-center space-x-2 text-sm">
-        <span className="text-zinc-500 font-medium px-2 py-1 bg-zinc-800 rounded">Marked as False Positive</span>
-        <button onClick={() => handleUpdateStatus("open")} className="text-blue-400 hover:text-blue-300 underline text-xs">Undo</button>
+        <span className="text-slate-600 dark:text-zinc-400 font-medium px-2 py-1 bg-slate-100 dark:bg-zinc-800 rounded border border-slate-200 dark:border-transparent">Marked as False Positive</span>
+        <button onClick={() => handleUpdateStatus("open")} className="text-brand hover:opacity-80 underline text-xs">Undo</button>
       </div>
     );
   }
@@ -42,8 +42,8 @@ export default function FindingActions({ findingId, initialStatus }: { findingId
   if (status === "confirmed") {
     return (
       <div className="flex items-center space-x-2 text-sm">
-        <span className="text-emerald-500 font-medium px-2 py-1 bg-emerald-500/10 border border-emerald-500/20 rounded">Confirmed Risk</span>
-        <button onClick={() => handleUpdateStatus("open")} className="text-blue-400 hover:text-blue-300 underline text-xs">Undo</button>
+        <span className="text-emerald-600 dark:text-emerald-400 font-medium px-2 py-1 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 rounded">Confirmed Risk</span>
+        <button onClick={() => handleUpdateStatus("open")} className="text-brand hover:opacity-80 underline text-xs">Undo</button>
       </div>
     );
   }
@@ -56,14 +56,14 @@ export default function FindingActions({ findingId, initialStatus }: { findingId
         <>
           <button
             onClick={() => handleUpdateStatus("confirmed")}
-            className="flex items-center space-x-1 px-3 py-1.5 rounded-lg text-sm font-medium bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/20 transition-colors"
+            className="flex items-center space-x-1 px-3 py-1.5 rounded-lg text-sm font-medium bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-500/20 border border-emerald-200 dark:border-emerald-500/20 transition-colors"
           >
             <Check className="w-4 h-4" />
             <span>Confirm</span>
           </button>
           <button
             onClick={() => handleUpdateStatus("false_positive")}
-            className="flex items-center space-x-1 px-3 py-1.5 rounded-lg text-sm font-medium bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-white transition-colors"
+            className="flex items-center space-x-1 px-3 py-1.5 rounded-lg text-sm font-medium bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400 hover:bg-slate-200 hover:text-slate-900 dark:hover:bg-zinc-700 dark:hover:text-white transition-colors"
           >
             <XCircle className="w-4 h-4" />
             <span>False Positive</span>

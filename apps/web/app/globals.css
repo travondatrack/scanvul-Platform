@@ -92,6 +92,24 @@ body {
   background-size: 36px 36px;
 }
 
+.auth-light-page {
+  color-scheme: light;
+}
+
+.auth-light-page input,
+.auth-light-page button {
+  color-scheme: light;
+}
+
+.auth-light-page input:-webkit-autofill,
+.auth-light-page input:-webkit-autofill:hover,
+.auth-light-page input:-webkit-autofill:focus,
+.auth-light-page input:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 1000px #f8fafc inset !important;
+  -webkit-text-fill-color: #0f172a !important;
+  caret-color: #0f172a !important;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

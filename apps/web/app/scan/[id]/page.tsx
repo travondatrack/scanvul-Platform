@@ -1,4 +1,15 @@
 import { prisma } from "@/lib/prisma";
+import { FindingsPanel } from "@/components/ui/findings-panel";
+import {
+  Activity,
+  AlertTriangle,
+  CheckCircle,
+  RefreshCw,
+  Search,
+  ShieldCheck,
+} from "lucide-react";
+import Link from "next/link";
+import { notFound } from "next/navigation";
 
 export default async function ScanResultPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = await Promise.resolve(params);
