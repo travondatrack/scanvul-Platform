@@ -1,132 +1,129 @@
-# CodeGuard AI
+# ScanVul AI
 
-Production-ready hybrid SAST web platform with:
+ScanVul AI is a web platform for creating projects, triggering security scans, and reviewing vulnerability findings.
 
-- Next.js 15 frontend dashboard
-- FastAPI backend API
-- Celery + Redis asynchronous scan workers
-- PostgreSQL storage for scan metadata
-- MinIO object storage for uploaded archives and reports
+The current project is split into:
 
-## Features
+- `apps/web`: Next.js 15 dashboard, authentication, projects, scans, reports
+- `apps/api`: FastAPI scanner API and background scan execution
+- `docker-compose.yml`: optional full stack services
 
-- Input methods: GitHub public repo URL, archive upload, direct file paste
-- Hybrid scan engines: Semgrep, Bandit, ESLint security, Trivy, AI contextual analyzer
-- OWASP Top 10 + CWE mapping
-- CVSS 4.0 severity scoring model
-- Reports: PDF, JSON, SARIF
-- Scan history and scan comparison
-- Public shareable scan badge links
-- CI/CD API endpoint
-- English and Vietnamese UI localization
+## Main Features
 
-## Input Workflows
+- Email/password authentication with NextAuth
+- Project management for GitHub repositories
+- Manual scan trigger per project
+- Scan history and report detail pages
+- Findings panel with severity, evidence, remediation, and status actions
+- Scanner API for repo URL, archive, or pasted source input
+- Light/dark theme inside authenticated dashboard
+- Public login/register pages pinned to light mode
 
-- `repo_url`: paste a public GitHub URL (latest default branch is cloned)
-- `archive`: upload `.zip` or `.tar.gz` up to 500MB
-- `paste`: provide JSON files payload:
+## Tech Stack
 
-```json
-[
-  { "path": "src/app.py", "content": "print('hello')" },
-  { "path": "src/routes.ts", "content": "export const x = 1;" }
-]
+Frontend:
+
+- Next.js 15
+- React 19
+- Tailwind CSS
+- NextAuth
+- Prisma Client
+
+Backend:
+
+- FastAPI
+- SQLAlchemy
+- Celery/Redis support
+- Semgrep, Bandit, secret scanning, AI reviewer adapters
+- Local storage or MinIO-compatible object storage
+
+## Project Structure
+
+```text
+apps/
+  web/      Next.js app, auth, dashboard, Prisma schema
+  api/      FastAPI app, scanner engines, worker tasks
+docker-compose.yml
+.env.example
 ```
 
-## Scan Pipeline
+## Environment
 
-1. Ingest source input into isolated temp workspace
-2. Detect languages and frameworks from real source files
-3. Run rule engines (Semgrep, Bandit, ESLint, Trivy)
-4. Run contextual AI-style heuristics (IDOR/race-condition patterns)
-5. Run secret/config scanner checks
-6. Deduplicate and score findings
-7. Save findings and generate export artifacts (JSON/PDF/SARIF)
+Copy the example file and edit values for your machine:
 
-## API Quick Reference
+```powershell
+Copy-Item .env.example .env
+```
 
-- `POST /api/v1/scans`
-- `GET /api/v1/scans`
-- `GET /api/v1/scans/{scanId}`
-- `GET /api/v1/scans/{scanId}/findings`
-- `GET /api/v1/scans/{scanId}/heatmap`
-- `GET /api/v1/scans/{scanId}/compare/{baseScanId}`
-- `GET /api/v1/scans/{scanId}/export?format=json|pdf|sarif`
-- `POST /api/v1/scans/{scanId}/badge/publish`
-- `GET /api/v1/public/scan/{token}`
-- `POST /api/v1/uploads/init`
-- `POST /api/v1/uploads/{uploadId}/data`
-- `POST /api/v1/uploads/complete`
-- `POST /api/scan` (CI/CD integration)
+Important:
 
-## Security Controls Included
+- `apps/web/prisma/schema.prisma` currently uses `provider = "mysql"`.
+- Set `DATABASE_URL` to a MySQL-compatible URL when running the web app with Prisma.
+- The FastAPI API can run with SQLite for local scanner development, but the Next.js dashboard auth/project tables use Prisma.
+- Set `LLM_API_KEY` only if you want AI triage enabled.
 
-- Request throttling with slowapi
-- Optional CAPTCHA verification (Cloudflare Turnstile)
-- Archive path traversal defenses
-- Upload size enforcement
-- Isolated temporary scan workspace with cleanup
+## Local Development
 
-## Quick Start: Local Development
+Install and prepare the web app:
 
-This setup runs without Docker. Local development uses SQLite, local file storage,
-and an in-process background scan thread by default.
+```powershell
+cd apps/web
+npm install
+npx prisma generate
+npx prisma db push
+npm run dev
+```
 
-1. Copy the environment file:
+Start the API in another terminal:
 
-   ```powershell
-   Copy-Item .env.example .env
-   ```
+```powershell
+cd apps/api
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install -r requirements.txt
+python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
 
-2. Start the backend:
+Open:
 
-   ```powershell
-   cd apps/api
-   python -m venv .venv
-   .\.venv\Scripts\Activate.ps1
-   python -m pip install -r requirements.txt
-   python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-   ```
+- Web: http://localhost:3000
+- API docs: http://localhost:8000/docs
 
-3. In another terminal, start the frontend:
+## Useful Commands
 
-   ```powershell
-   cd apps/web
-   npm install
-   npm run dev
-   ```
+Frontend type check:
 
-4. Open:
+```powershell
+cd apps/web
+npx tsc --noEmit --pretty false
+```
 
-   - Frontend: http://localhost:3000
-   - Backend docs: http://localhost:8000/docs
+Frontend build:
 
-Local runtime data is stored in:
+```powershell
+cd apps/web
+npm run build
+```
 
-- `apps/api/codeguard.db`
-- `apps/api/storage/`
+API smoke tests:
 
-## Docker Option
+```powershell
+cd apps/api
+python -m pytest
+```
 
-If you prefer the full service stack with PostgreSQL, Redis, MinIO, and Celery:
+## Docker
+
+The compose file starts web, API, worker, Redis, MinIO, and a database service.
 
 ```powershell
 docker compose up --build
 ```
 
-Docker Compose exposes:
+Before using Docker for a full run, make sure `.env` database settings match the Prisma provider used by `apps/web/prisma/schema.prisma`.
 
-- Frontend: http://localhost:3001
-- Backend docs: http://localhost:8001/docs
-- MinIO console: http://localhost:9001
+## Current Notes
 
-## Service Layout
-
-- apps/web: Next.js 15 frontend
-- apps/api: FastAPI API + Celery worker + scanners
-- infrastructure: deployment and ops docs
-
-## Notes
-
-- Scanner adapters are production-oriented scaffolds with clear extension points.
-- Replace the demo AI analyzer with your preferred LLM provider credentials.
+- Build may require network access because `apps/web/app/layout.tsx` imports the Google `Geist` font through `next/font`.
+- Dashboard theme switching is only intended after login.
+- Login and register pages are intentionally forced to light mode.
