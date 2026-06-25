@@ -46,10 +46,10 @@ const severityRank: Record<string, number> = {
 };
 
 const severityTone: Record<string, string> = {
-  Critical: "border-red-200 bg-red-50 text-red-700",
-  High: "border-orange-200 bg-orange-50 text-orange-700",
-  Medium: "border-amber-200 bg-amber-50 text-amber-700",
-  Low: "border-emerald-200 bg-emerald-50 text-emerald-700",
+  Critical: "border-red-200 dark:border-red-500/20 bg-red-50 dark:bg-red-500/10 text-red-700 dark:text-red-400",
+  High: "border-orange-200 dark:border-orange-500/20 bg-orange-50 dark:bg-orange-500/10 text-orange-700 dark:text-orange-400",
+  Medium: "border-amber-200 dark:border-amber-500/20 bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400",
+  Low: "border-emerald-200 dark:border-emerald-500/20 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
 };
 
 // Verification status badge config
@@ -57,32 +57,32 @@ const verificationConfig: Record<string, { label: string; icon: React.FC<{ class
   verified: {
     label: "Verified",
     icon: ShieldCheck,
-    cls: "border-emerald-300 bg-emerald-50 text-emerald-700",
+    cls: "border-emerald-300 dark:border-emerald-500/30 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
   },
   unverified: {
     label: "Unverified",
     icon: HelpCircle,
-    cls: "border-slate-300 bg-slate-50 text-slate-600",
+    cls: "border-slate-300 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400",
   },
   needs_review: {
     label: "Needs Review",
     icon: ShieldAlert,
-    cls: "border-amber-300 bg-amber-50 text-amber-700",
+    cls: "border-amber-300 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400",
   },
   false_positive_likely: {
     label: "FP Likely",
     icon: ShieldX,
-    cls: "border-red-200 bg-red-50 text-red-500 line-through",
+    cls: "border-red-200 dark:border-red-500/20 bg-red-50 dark:bg-red-500/10 text-red-500 dark:text-red-400 line-through",
   },
   skipped: {
     label: "Skipped",
     icon: SkipForward,
-    cls: "border-slate-200 bg-slate-50 text-slate-400",
+    cls: "border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800 text-slate-400 dark:text-zinc-500",
   },
   failed: {
     label: "Verify Failed",
     icon: ShieldX,
-    cls: "border-orange-200 bg-orange-50 text-orange-600",
+    cls: "border-orange-200 dark:border-orange-500/20 bg-orange-50 dark:bg-orange-500/10 text-orange-600 dark:text-orange-400",
   },
 };
 
@@ -126,7 +126,7 @@ function ReferenceLinks({ references }: { references: string }) {
           href={link}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline"
+          className="inline-flex items-center gap-1 text-xs text-brand hover:underline"
         >
           <ExternalLink className="h-3 w-3" />
           {link.replace(/^https?:\/\//, "").slice(0, 60)}
@@ -188,19 +188,19 @@ export function FindingsPanel({ findings }: { findings: FindingItem[] }) {
       {/* Filters */}
       <div className="mb-4 grid gap-2 lg:grid-cols-[1fr_140px_140px_160px_140px]">
         <label className="relative block">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 dark:text-zinc-500" />
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search findings…"
-            className="h-10 w-full rounded-lg border border-slate-300 bg-white pl-9 pr-3 text-sm outline-none transition focus:border-slate-900 focus:ring-4 focus:ring-slate-200"
+            className="h-10 w-full rounded-lg border border-slate-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 pl-9 pr-3 text-sm text-slate-900 dark:text-white outline-none transition focus:border-slate-900 dark:focus:border-white focus:ring-4 focus:ring-slate-200 dark:focus:ring-zinc-800"
           />
         </label>
 
         <select
           value={severity}
           onChange={(e) => setSeverity(e.target.value)}
-          className="h-10 rounded-lg border border-slate-300 bg-white px-2 text-sm"
+          className="h-10 rounded-lg border border-slate-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-slate-900 dark:text-white px-2 text-sm"
         >
           <option value="All">All severity</option>
           <option value="Critical">Critical</option>
@@ -212,7 +212,7 @@ export function FindingsPanel({ findings }: { findings: FindingItem[] }) {
         <select
           value={language}
           onChange={(e) => setLanguage(e.target.value)}
-          className="h-10 rounded-lg border border-slate-300 bg-white px-2 text-sm"
+          className="h-10 rounded-lg border border-slate-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-slate-900 dark:text-white px-2 text-sm"
         >
           <option value="All">All language</option>
           <option value="python">Python</option>
@@ -226,7 +226,7 @@ export function FindingsPanel({ findings }: { findings: FindingItem[] }) {
         <select
           value={verStatus}
           onChange={(e) => setVerStatus(e.target.value)}
-          className="h-10 rounded-lg border border-slate-300 bg-white px-2 text-sm"
+          className="h-10 rounded-lg border border-slate-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-slate-900 dark:text-white px-2 text-sm"
         >
           <option value="All">All status</option>
           <option value="verified">Verified</option>
@@ -240,7 +240,7 @@ export function FindingsPanel({ findings }: { findings: FindingItem[] }) {
         <select
           value={sortBy}
           onChange={(e) => setSortBy(e.target.value)}
-          className="h-10 rounded-lg border border-slate-300 bg-white px-2 text-sm"
+          className="h-10 rounded-lg border border-slate-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-slate-900 dark:text-white px-2 text-sm"
         >
           <option value="risk">Sort by risk</option>
           <option value="confidence">Sort by confidence</option>
@@ -248,12 +248,12 @@ export function FindingsPanel({ findings }: { findings: FindingItem[] }) {
         </select>
       </div>
 
-      <div className="mb-3 text-sm text-slate-600">
+      <div className="mb-3 text-sm text-slate-600 dark:text-zinc-400">
         Showing {filtered.length} of {findings.length}
       </div>
 
       {filtered.length === 0 ? (
-        <div className="rounded-lg border border-slate-200 bg-slate-50 p-5 text-sm text-slate-500">
+        <div className="rounded-lg border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-900 p-5 text-sm text-slate-500 dark:text-zinc-400">
           No findings match the current filters.
         </div>
       ) : (
@@ -269,32 +269,32 @@ export function FindingsPanel({ findings }: { findings: FindingItem[] }) {
             return (
               <article
                 key={item.id}
-                className="animate-fade-up overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm"
+                className="animate-fade-up overflow-hidden rounded-lg border border-slate-200 dark:border-zinc-800/50 bg-white dark:bg-zinc-900/50 shadow-sm dark:shadow-xl dark:backdrop-blur-md"
                 style={{ animationDelay: `${Math.min(index * 35, 180)}ms` }}
               >
                 {/* Header row */}
                 <button
                   type="button"
                   onClick={() => setExpanded(isOpen ? null : item.id)}
-                  className="flex w-full items-start justify-between gap-3 p-4 text-left transition hover:bg-slate-50"
+                  className="flex w-full items-start justify-between gap-3 p-4 text-left transition hover:bg-slate-50 dark:hover:bg-zinc-800/30"
                 >
                   <div className="min-w-0">
                     <div className="mb-2 flex flex-wrap items-center gap-2">
                       <span
                         className={cn(
                           "rounded-full border px-2 py-0.5 text-xs font-semibold",
-                          severityTone[item.severity] ?? "border-slate-200 bg-slate-50 text-slate-600",
+                          severityTone[item.severity] ?? "border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400",
                         )}
                       >
                         {item.severity}
                       </span>
-                      <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-600">
+                      <span className="rounded-full bg-slate-100 dark:bg-zinc-800 px-2 py-0.5 text-xs font-semibold text-slate-600 dark:text-zinc-400">
                         CVSS {item.cvss4.toFixed(1)}
                       </span>
-                      <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-600">
+                      <span className="rounded-full bg-slate-100 dark:bg-zinc-800 px-2 py-0.5 text-xs font-semibold text-slate-600 dark:text-zinc-400">
                         {(item.confidence * 100).toFixed(0)}%
                       </span>
-                      <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-600">
+                      <span className="rounded-full bg-slate-100 dark:bg-zinc-800 px-2 py-0.5 text-xs font-semibold text-slate-600 dark:text-zinc-400">
                         {item.scanCategory}
                       </span>
                       <VerificationBadge status={item.verificationStatus} />
@@ -304,21 +304,21 @@ export function FindingsPanel({ findings }: { findings: FindingItem[] }) {
                           target="_blank"
                           rel="noopener noreferrer"
                           onClick={(e) => e.stopPropagation()}
-                          className="rounded-full border border-blue-200 bg-blue-50 px-2 py-0.5 text-xs font-semibold text-blue-700 hover:bg-blue-100"
+                          className="rounded-full border border-brand/20 dark:border-brand/30 bg-brand/10 dark:bg-brand/20 px-2 py-0.5 text-xs font-semibold text-brand hover:bg-brand/20 dark:hover:bg-brand/30"
                         >
                           {item.cweId}
                         </a>
                       )}
                     </div>
-                    <h3 className="font-semibold text-slate-950">{item.title}</h3>
-                    <p className="mt-1 flex min-w-0 items-center gap-1 truncate font-mono text-xs text-slate-500">
+                    <h3 className="font-semibold text-slate-950 dark:text-white">{item.title}</h3>
+                    <p className="mt-1 flex min-w-0 items-center gap-1 truncate font-mono text-xs text-slate-500 dark:text-zinc-400">
                       <FileCode2 className="h-3.5 w-3.5 shrink-0" />
                       {item.filePath}:{lineRange}
                     </p>
                   </div>
                   <ChevronDown
                     className={cn(
-                      "mt-1 h-5 w-5 shrink-0 text-slate-400 transition",
+                      "mt-1 h-5 w-5 shrink-0 text-slate-400 dark:text-zinc-500 transition",
                       isOpen && "rotate-180",
                     )}
                   />
@@ -326,7 +326,7 @@ export function FindingsPanel({ findings }: { findings: FindingItem[] }) {
 
                 {/* Detail panel */}
                 {isOpen && (
-                  <div className="border-t border-slate-200">
+                  <div className="border-t border-slate-200 dark:border-zinc-800/50">
                     {/* Metadata strip */}
                     <div className="grid gap-2 p-4 md:grid-cols-2 xl:grid-cols-4">
                       {[
@@ -335,15 +335,15 @@ export function FindingsPanel({ findings }: { findings: FindingItem[] }) {
                         ["Source", item.source || "not proven"],
                         ["Sink", item.sink || "not proven"],
                       ].map(([label, value]) => (
-                        <div key={label} className="rounded-lg bg-slate-50 p-3">
-                          <p className="text-xs font-bold uppercase text-slate-500">{label}</p>
-                          <p className="mt-1 break-words font-mono text-xs text-slate-800">{value}</p>
+                        <div key={label} className="rounded-lg bg-slate-50 dark:bg-zinc-800/50 p-3">
+                          <p className="text-xs font-bold uppercase text-slate-500 dark:text-zinc-500">{label}</p>
+                          <p className="mt-1 break-words font-mono text-xs text-slate-800 dark:text-zinc-300">{value}</p>
                         </div>
                       ))}
                     </div>
 
                     {/* Tabs */}
-                    <div className="border-t border-slate-100 px-4">
+                    <div className="border-t border-slate-100 dark:border-zinc-800/50 px-4">
                       <div className="flex gap-1 overflow-x-auto py-2">
                         {["evidence", "impact", "fix", "pentest", "references"].map((t) => (
                           <button
@@ -353,8 +353,8 @@ export function FindingsPanel({ findings }: { findings: FindingItem[] }) {
                             className={cn(
                               "rounded-md px-3 py-1.5 text-xs font-semibold capitalize transition",
                               tab === t
-                                ? "bg-slate-900 text-white"
-                                : "text-slate-600 hover:bg-slate-100",
+                                ? "bg-slate-900 dark:bg-brand text-white"
+                                : "text-slate-600 dark:text-zinc-400 hover:bg-slate-100 dark:hover:bg-zinc-800",
                             )}
                           >
                             {t === "pentest" ? "Pentest Hints" : t.charAt(0).toUpperCase() + t.slice(1)}
@@ -368,28 +368,28 @@ export function FindingsPanel({ findings }: { findings: FindingItem[] }) {
                       {tab === "evidence" && (
                         <div className="space-y-3">
                           {item.evidence && (
-                            <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
-                              <p className="mb-1 text-xs font-bold uppercase text-amber-700">
+                            <div className="rounded-lg border border-amber-200 dark:border-amber-500/20 bg-amber-50 dark:bg-amber-500/5 p-3">
+                              <p className="mb-1 text-xs font-bold uppercase text-amber-700 dark:text-amber-500">
                                 Evidence (redacted)
                               </p>
-                              <code className="text-xs text-amber-900">{item.evidence}</code>
+                              <code className="text-xs text-amber-900 dark:text-amber-400">{item.evidence}</code>
                             </div>
                           )}
-                          <pre className="max-h-72 overflow-auto rounded-lg bg-slate-950 p-3 text-xs text-slate-100">
+                          <pre className="max-h-72 overflow-auto rounded-lg bg-slate-950 dark:bg-[#0d1117] p-3 text-xs text-slate-100">
                             {item.codeSnippet || "No snippet available"}
                           </pre>
                           <div className="grid gap-3 md:grid-cols-2">
                             <div>
-                              <h4 className="text-xs font-bold uppercase text-slate-500">
+                              <h4 className="text-xs font-bold uppercase text-slate-500 dark:text-zinc-500">
                                 Why vulnerable
                               </h4>
-                              <p className="mt-1 text-sm text-slate-700">
+                              <p className="mt-1 text-sm text-slate-700 dark:text-zinc-300">
                                 {item.whyVulnerable || item.attackScenario}
                               </p>
                             </div>
                             <div>
-                              <h4 className="text-xs font-bold uppercase text-slate-500">Attack</h4>
-                              <p className="mt-1 text-sm text-slate-700">{item.attackScenario}</p>
+                              <h4 className="text-xs font-bold uppercase text-slate-500 dark:text-zinc-500">Attack</h4>
+                              <p className="mt-1 text-sm text-slate-700 dark:text-zinc-300">{item.attackScenario}</p>
                             </div>
                           </div>
                         </div>
@@ -398,22 +398,22 @@ export function FindingsPanel({ findings }: { findings: FindingItem[] }) {
                       {/* Impact tab */}
                       {tab === "impact" && (
                         <div className="space-y-3">
-                          <div className="rounded-lg border border-red-100 bg-red-50 p-4">
-                            <h4 className="mb-2 text-xs font-bold uppercase text-red-700">
+                          <div className="rounded-lg border border-red-100 dark:border-red-500/20 bg-red-50 dark:bg-red-500/5 p-4">
+                            <h4 className="mb-2 text-xs font-bold uppercase text-red-700 dark:text-red-500">
                               Security Impact
                             </h4>
-                            <p className="text-sm text-red-900">
+                            <p className="text-sm text-red-900 dark:text-red-400">
                               {item.impact || item.attackScenario || "No impact description available."}
                             </p>
                           </div>
                           <div>
-                            <h4 className="text-xs font-bold uppercase text-slate-500">PoC</h4>
-                            <p className="mt-1 text-sm text-slate-700">{item.poc}</p>
+                            <h4 className="text-xs font-bold uppercase text-slate-500 dark:text-zinc-500">PoC</h4>
+                            <p className="mt-1 text-sm text-slate-700 dark:text-zinc-300">{item.poc}</p>
                           </div>
                           {item.owaspCategory && (
-                            <div className="rounded-lg bg-slate-50 p-3">
-                              <p className="text-xs font-bold uppercase text-slate-500">OWASP</p>
-                              <p className="mt-1 text-xs font-mono text-slate-700">{item.owaspCategory}</p>
+                            <div className="rounded-lg bg-slate-50 dark:bg-zinc-800/50 p-3">
+                              <p className="text-xs font-bold uppercase text-slate-500 dark:text-zinc-500">OWASP</p>
+                              <p className="mt-1 text-xs font-mono text-slate-700 dark:text-zinc-300">{item.owaspCategory}</p>
                             </div>
                           )}
                         </div>
@@ -422,18 +422,18 @@ export function FindingsPanel({ findings }: { findings: FindingItem[] }) {
                       {/* Fix tab */}
                       {tab === "fix" && (
                         <div className="space-y-3">
-                          <div className="rounded-lg border border-emerald-100 bg-emerald-50 p-4">
-                            <h4 className="mb-2 text-xs font-bold uppercase text-emerald-700">
+                          <div className="rounded-lg border border-emerald-100 dark:border-emerald-500/20 bg-emerald-50 dark:bg-emerald-500/5 p-4">
+                            <h4 className="mb-2 text-xs font-bold uppercase text-emerald-700 dark:text-emerald-500">
                               Remediation
                             </h4>
-                            <p className="text-sm text-emerald-900">{item.remediation}</p>
+                            <p className="text-sm text-emerald-900 dark:text-emerald-400">{item.remediation}</p>
                           </div>
                           {item.codeSnippet && (
                             <div>
-                              <h4 className="mb-1 text-xs font-bold uppercase text-slate-500">
+                              <h4 className="mb-1 text-xs font-bold uppercase text-slate-500 dark:text-zinc-500">
                                 Secure Example
                               </h4>
-                              <pre className="overflow-auto rounded-lg bg-slate-950 p-3 text-xs text-emerald-300">
+                              <pre className="overflow-auto rounded-lg bg-slate-950 dark:bg-[#0d1117] p-3 text-xs text-emerald-300 dark:text-emerald-400">
                                 {/* secureExample from parent – passed via findings */}
                               </pre>
                             </div>
@@ -444,26 +444,26 @@ export function FindingsPanel({ findings }: { findings: FindingItem[] }) {
                       {/* Pentest Hints tab */}
                       {tab === "pentest" && (
                         <div className="space-y-3">
-                          <div className="rounded-lg border border-blue-100 bg-blue-50 p-4">
-                            <h4 className="mb-2 text-xs font-bold uppercase text-blue-700">
+                          <div className="rounded-lg border border-brand/20 bg-brand/5 p-4">
+                            <h4 className="mb-2 text-xs font-bold uppercase text-brand">
                               Authorised Verification Steps
                             </h4>
                             {item.pentestHint ? (
                               <ul className="space-y-1">
                                 {item.pentestHint.split("\n").filter(Boolean).map((line, i) => (
-                                  <li key={i} className="flex gap-2 text-sm text-blue-900">
-                                    <span className="mt-0.5 shrink-0 font-bold text-blue-500">→</span>
+                                  <li key={i} className="flex gap-2 text-sm text-slate-800 dark:text-zinc-300">
+                                    <span className="mt-0.5 shrink-0 font-bold text-brand">→</span>
                                     <span>{line.replace(/^\d+\.\s*/, "")}</span>
                                   </li>
                                 ))}
                               </ul>
                             ) : (
-                              <p className="text-sm text-blue-800">
+                              <p className="text-sm text-slate-500 dark:text-zinc-500">
                                 No pentest hints available for this finding.
                               </p>
                             )}
                           </div>
-                          <div className="rounded-lg border border-amber-100 bg-amber-50 p-3 text-xs text-amber-800">
+                          <div className="rounded-lg border border-amber-100 dark:border-amber-500/20 bg-amber-50 dark:bg-amber-500/5 p-3 text-xs text-amber-800 dark:text-amber-500">
                             ⚠️ Only perform verification steps in authorised environments using staging/test accounts.
                           </div>
                         </div>
@@ -472,13 +472,13 @@ export function FindingsPanel({ findings }: { findings: FindingItem[] }) {
                       {/* References tab */}
                       {tab === "references" && (
                         <div>
-                          <h4 className="mb-2 text-xs font-bold uppercase text-slate-500">
+                          <h4 className="mb-2 text-xs font-bold uppercase text-slate-500 dark:text-zinc-500">
                             External References
                           </h4>
                           {item.references ? (
                             <ReferenceLinks references={item.references} />
                           ) : (
-                            <p className="text-sm text-slate-500">No references available.</p>
+                            <p className="text-sm text-slate-500 dark:text-zinc-500">No references available.</p>
                           )}
                           {item.cweId && (
                             <div className="mt-3">
@@ -486,7 +486,7 @@ export function FindingsPanel({ findings }: { findings: FindingItem[] }) {
                                 href={`https://cwe.mitre.org/data/definitions/${item.cweId.replace("CWE-", "")}.html`}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="inline-flex items-center gap-1 text-sm font-semibold text-blue-600 hover:underline"
+                                className="inline-flex items-center gap-1 text-sm font-semibold text-brand hover:underline"
                               >
                                 <ExternalLink className="h-4 w-4" />
                                 {item.cweId} – CWE Mitre

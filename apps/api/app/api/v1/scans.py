@@ -376,3 +376,18 @@ def public_scan(token: str, db: Session = Depends(get_db)):
 async def ci_scan(request: Request, payload: ScanCreateRequest, db: Session = Depends(get_db)):
     _ = request
     return _queue_scan(payload, db)
+
+@router.post("/scan/{scan_id}/trigger")
+def trigger_existing_scan(scan_id: str, db: Session = Depends(get_db)):
+    scan = db.get(Scan, scan_id)
+    if scan is None:
+        raise HTTPException(status_code=404, detail="Scan not found")
+        
+    if settings.scan_worker_mode.lower() == "celery":
+        run_scan.delay(scan.id)
+    elif settings.scan_worker_mode.lower() == "inline":
+        execute_scan(scan.id)
+    else:
+        threading.Thread(target=execute_scan, args=(scan.id,), daemon=True).start()
+        
+    return {"status": "accepted", "scanId": scan.id}

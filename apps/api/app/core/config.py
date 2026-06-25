@@ -38,6 +38,13 @@ class Settings(BaseSettings):
     rate_limit_per_minute: int = 60
     presigned_upload_expiry_seconds: int = 900
     captcha_secret_key: str = ""
+    
+    # OAuth and JWT
+    google_client_id: str = ""
+    google_client_secret: str = ""
+    google_redirect_uri: str = "http://localhost:8000/api/v1/auth/google/callback"
+    jwt_secret: str = "secret"
+    jwt_expires_minutes: int = 60
 
     model_config = SettingsConfigDict(
         env_file=(".env", "../../.env"),

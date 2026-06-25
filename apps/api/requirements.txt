@@ -16,3 +16,7 @@ reportlab==4.2.5
 orjson==3.10.12
 bandit==1.8.2
 semgrep==1.112.0
+PyJWT==2.10.1
+pymysql==1.1.1
+cryptography==44.0.0
+

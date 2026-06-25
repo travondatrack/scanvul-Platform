@@ -10,7 +10,9 @@ from app.db.base import Base
 class Scan(Base):
     __tablename__ = "scans"
 
-    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    id: Mapped[str] = mapped_column(String(191), primary_key=True, default=lambda: str(uuid4()))
+    project_id: Mapped[str] = mapped_column(String(191), nullable=True)
+    triggered_by: Mapped[str] = mapped_column(String(191), nullable=True)
     source_type: Mapped[str] = mapped_column(String(20), nullable=False)
     source_value: Mapped[str] = mapped_column(Text, nullable=False)
     status: Mapped[str] = mapped_column(String(20), default="queued")
@@ -28,8 +30,9 @@ class Scan(Base):
 class Finding(Base):
     __tablename__ = "findings"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    scan_id: Mapped[str] = mapped_column(String(36), ForeignKey("scans.id", ondelete="CASCADE"), nullable=False)
+    id: Mapped[str] = mapped_column(String(191), primary_key=True, default=lambda: str(uuid4()))
+    scan_id: Mapped[str] = mapped_column(String(191), ForeignKey("scans.id", ondelete="CASCADE"), nullable=False)
+    project_id: Mapped[str] = mapped_column(String(191), nullable=True)
 
     # ── Core identity ──────────────────────────────────────────────────────────
     engine: Mapped[str] = mapped_column(String(40), nullable=False)
@@ -72,6 +75,9 @@ class Finding(Base):
     # verification_status: unverified|verified|failed|skipped|needs_review|false_positive_likely
     verification_status: Mapped[str] = mapped_column(String(40), default="unverified")
     dedupe_hash: Mapped[str] = mapped_column(String(64), default="")
+    status: Mapped[str] = mapped_column(String(20), default="open")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     scan: Mapped[Scan] = relationship(back_populates="findings")
 
@@ -79,7 +85,7 @@ class Finding(Base):
 class UploadedAsset(Base):
     __tablename__ = "uploaded_assets"
 
-    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    id: Mapped[str] = mapped_column(String(191), primary_key=True, default=lambda: str(uuid4()))
     file_name: Mapped[str] = mapped_column(String(255), nullable=False)
     object_key: Mapped[str] = mapped_column(String(255), nullable=False)
     size_bytes: Mapped[int] = mapped_column(Integer, nullable=False)
@@ -91,7 +97,7 @@ class PublicBadge(Base):
     __tablename__ = "public_badges"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    scan_id: Mapped[str] = mapped_column(String(36), ForeignKey("scans.id", ondelete="CASCADE"), nullable=False)
+    scan_id: Mapped[str] = mapped_column(String(191), ForeignKey("scans.id", ondelete="CASCADE"), nullable=False)
     token: Mapped[str] = mapped_column(String(64), unique=True, nullable=False, default=lambda: str(uuid4()).replace("-", ""))
     is_active: Mapped[str] = mapped_column(String(5), default="true")
     expires_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.utcnow() + timedelta(days=30))

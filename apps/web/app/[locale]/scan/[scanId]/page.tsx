@@ -9,7 +9,7 @@ import { FindingsPanel } from "@/components/ui/findings-panel";
 import { ScanProgress } from "@/components/ui/scan-progress";
 import { cn } from "@/lib/utils";
 
-const API_BASE = process.env.BACKEND_API_BASE_URL ?? "http://localhost:8000";
+const API_BASE = process.env.BACKEND_API_BASE_URL ?? "http://localhost:8001";
 
 async function getScan(scanId: string) {
   const response = await fetch(`${API_BASE}/api/v1/scans/${scanId}`, {

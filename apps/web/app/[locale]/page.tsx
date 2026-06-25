@@ -7,9 +7,7 @@ import {
   GitBranch,
   Languages,
   Loader2,
-  Moon,
   ShieldCheck,
-  Sun,
   UploadCloud,
 } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
@@ -95,7 +93,6 @@ export default function HomePage() {
   const [sourceType, setSourceType] = useState<SourceType>("repo_url");
   const [sourceValue, setSourceValue] = useState("");
   const [archiveFile, setArchiveFile] = useState<File | null>(null);
-  const [dark, setDark] = useState(false);
   const [loading, setLoading] = useState(false);
   const [phase, setPhase] = useState("");
   const [error, setError] = useState("");
@@ -168,7 +165,7 @@ export default function HomePage() {
   }
 
   return (
-    <main className={dark ? "dark" : ""}>
+    <main>
       <div className="min-h-screen px-4 py-5 text-slate-900 dark:text-slate-100 md:px-8">
         <div className="mx-auto grid max-w-7xl gap-5">
           <header className="animate-fade-up flex flex-col gap-4 border-b border-slate-200/80 pb-5 dark:border-slate-800 md:flex-row md:items-center md:justify-between">
@@ -187,9 +184,6 @@ export default function HomePage() {
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
-              <Button variant="outline" onClick={() => setDark((prev) => !prev)}>
-                {dark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-              </Button>
               <Button
                 variant="outline"
                 onClick={() => router.push(locale === "en" ? "/vi" : "/en")}

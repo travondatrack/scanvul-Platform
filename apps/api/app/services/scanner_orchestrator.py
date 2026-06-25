@@ -1,8 +1,10 @@
 from collections import Counter
 from pathlib import Path
+import logging
 import re
 import subprocess
 
+from app.core.config import settings
 from app.scanner_engines.ai_adapter import run_ai_triage
 from app.scanner_engines.bandit_adapter import run_bandit
 from app.scanner_engines.eslint_adapter import run_eslint_security
@@ -11,6 +13,8 @@ from app.scanner_engines.secret_scanner import run_secret_scan
 from app.scanner_engines.semgrep_adapter import run_semgrep
 from app.scanner_engines.trivy_adapter import run_trivy_dependencies
 from app.services.types import EngineFinding
+
+logger = logging.getLogger(__name__)
 
 
 SEVERITY_SCORE = {"Critical": 4, "High": 3, "Medium": 2, "Low": 1, "Info": 0}
@@ -373,8 +377,8 @@ def run_hybrid_scan(source_dir: Path) -> tuple[list[EngineFinding], dict, dict, 
     # ── Stage 2: Dependency scan ───────────────────────────────────────────
     findings.extend(run_trivy_dependencies(source_dir))
 
-    # ── Stage 3: Secret scan ───────────────────────────────────────────────
-    findings.extend(run_secret_scan(source_dir))
+    # ── Stage 3: Secret scan (opt-in live verification) ───────────────────
+    findings.extend(run_secret_scan(source_dir, verify_enabled=settings.secret_verify_enabled))
 
     # ── Stage 4: Attack chain correlation ─────────────────────────────────
     findings = _add_attack_chain_findings(findings)
@@ -388,7 +392,30 @@ def run_hybrid_scan(source_dir: Path) -> tuple[list[EngineFinding], dict, dict, 
     # ── Stage 7: AI triage (post-scan, adjusts confidence + status) ────────
     findings = run_ai_triage(findings, source_dir)
 
+    # ── Stage 8: Confidence floor + triage stats ────────────────────────────
+    # AI is never allowed to zero-out confidence (findings are never silently deleted)
+    for f in findings:
+        f.confidence = max(f.confidence, 0.05)
+
+    _log_triage_stats(findings)
+
     language_summary, framework_summary = detect_language_framework(source_dir)
     risk_level, risk_percent = calculate_risk(findings)
 
     return findings, language_summary, framework_summary, risk_level, risk_percent
+
+
+# ---------------------------------------------------------------------------
+# Triage statistics logger
+# ---------------------------------------------------------------------------
+
+def _log_triage_stats(findings: list[EngineFinding]) -> None:
+    from collections import Counter as _Counter
+    stats = _Counter(f.verification_status for f in findings)
+    sev_stats = _Counter(f.severity for f in findings)
+    logger.info(
+        "Scan complete — %d findings | severity: %s | triage: %s",
+        len(findings),
+        dict(sev_stats),
+        dict(stats),
+    )

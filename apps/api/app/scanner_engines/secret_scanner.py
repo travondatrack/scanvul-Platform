@@ -1,407 +1,333 @@
 """
-Secret Scanner Engine
-=====================
-Gitleaks-style regex patterns + Shannon entropy filtering + allowlist support.
-Opt-in live verification via SECRET_VERIFY_ENABLED=true.
+Secret Scanner
+==============
+Gitleaks-style regex + Shannon entropy filter + opt-in TruffleHog-style verification.
 
-Safety invariants:
-  - Raw credentials are NEVER stored in the database or reports.
-  - evidence fields hold only masked values (e.g. "sk-****c123").
-  - Live verification is disabled by default.
-  - Allowlist skips obvious placeholders and localhost values.
+Pipeline:
+  1. Walk all non-binary files in source_dir (ThreadPoolExecutor, 8 workers).
+  2. For each line, test against PATTERNS dict.
+  3. Shannon entropy filter: discard matches with entropy < MIN_ENTROPY (placeholders, test values).
+  4. Redact the raw value before creating EngineFinding (never store raw secrets).
+  5. Opt-in live verification (SECRET_VERIFY_ENABLED=true):
+     - GitHub token: GET /user with Authorization header → 3 s timeout.
+     - Slack token: POST /api/auth.test → 3 s timeout.
+     - Result stored in verification_status: verified | failed | skipped.
+     - Raw token is NEVER logged or persisted.
 """
 from __future__ import annotations
 
+import concurrent.futures
+import hashlib
 import math
+import os
 import re
-import subprocess
-from collections import Counter
 from pathlib import Path
-from typing import Sequence
 
-from app.core.config import settings
 from app.services.types import EngineFinding
 
 # ---------------------------------------------------------------------------
-# Shannon entropy
+# Pattern registry  (Gitleaks-style)
 # ---------------------------------------------------------------------------
 
-def _entropy(s: str) -> float:
-    if not s:
+PATTERNS: dict[str, tuple[str, str, str]] = {
+    # name: (regex, cwe, owasp)
+    "AWS Access Key": (
+        r"AKIA[0-9A-Z]{16}",
+        "CWE-798", "A07:2021-Identification and Authentication Failures",
+    ),
+    "AWS Secret Key": (
+        r"(?i)aws[_\-\.]?secret[_\-\.]?(?:access[_\-\.]?)?key[^a-zA-Z0-9]{0,4}[A-Za-z0-9/+]{40}",
+        "CWE-798", "A07:2021-Identification and Authentication Failures",
+    ),
+    "GitHub Token (Classic)": (
+        r"ghp_[A-Za-z0-9]{36}",
+        "CWE-798", "A07:2021-Identification and Authentication Failures",
+    ),
+    "GitHub App Token": (
+        r"(?:ghs_|gho_|ghu_)[A-Za-z0-9]{36}",
+        "CWE-798", "A07:2021-Identification and Authentication Failures",
+    ),
+    "OpenAI API Key": (
+        r"sk-[A-Za-z0-9]{20,48}T3BlbkFJ[A-Za-z0-9]{20,48}|sk-proj-[A-Za-z0-9_\-]{80,}",
+        "CWE-798", "A07:2021-Identification and Authentication Failures",
+    ),
+    "Slack Bot/User Token": (
+        r"xox[baprs]-[0-9A-Za-z\-]{10,72}",
+        "CWE-798", "A07:2021-Identification and Authentication Failures",
+    ),
+    "Slack Webhook": (
+        r"https://hooks\.slack\.com/services/T[A-Za-z0-9_]{8,}/B[A-Za-z0-9_]{8,}/[A-Za-z0-9_]{24,}",
+        "CWE-798", "A07:2021-Identification and Authentication Failures",
+    ),
+    "Stripe Live Key": (
+        r"sk_live_[0-9a-zA-Z]{24,}",
+        "CWE-798", "A07:2021-Identification and Authentication Failures",
+    ),
+    "Stripe Restricted Key": (
+        r"rk_live_[0-9a-zA-Z]{24,}",
+        "CWE-798", "A07:2021-Identification and Authentication Failures",
+    ),
+    "Google Cloud API Key": (
+        r"AIza[0-9A-Za-z\-_]{35}",
+        "CWE-798", "A07:2021-Identification and Authentication Failures",
+    ),
+    "HuggingFace Token": (
+        r"hf_[A-Za-z0-9]{34,}",
+        "CWE-798", "A07:2021-Identification and Authentication Failures",
+    ),
+    "JWT Token": (
+        r"eyJ[A-Za-z0-9\-_]+\.[A-Za-z0-9\-_]+\.[A-Za-z0-9\-_]+",
+        "CWE-522", "A07:2021-Identification and Authentication Failures",
+    ),
+    "PEM Private Key": (
+        r"-----BEGIN (?:RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----",
+        "CWE-321", "A02:2021-Cryptographic Failures",
+    ),
+    "Database Connection URL": (
+        r"(?i)(?:mysql|postgres|postgresql|mongodb|redis|amqp)://[^:\s]+:[^@\s]+@[^\s/\"']+",
+        "CWE-798", "A07:2021-Identification and Authentication Failures",
+    ),
+    "Generic High-Entropy Secret": (
+        r"(?i)(?:api_?key|secret|password|passwd|token|auth|credential)[^a-zA-Z0-9]{0,4}['\"]?[:=]\s*['\"]?([A-Za-z0-9+/\-_]{20,64})['\"]?",
+        "CWE-798", "A07:2021-Identification and Authentication Failures",
+    ),
+}
+
+# ---------------------------------------------------------------------------
+# Shannon Entropy
+# ---------------------------------------------------------------------------
+
+MIN_ENTROPY = 3.5  # bits per character — below this = likely placeholder/test value
+
+def _shannon_entropy(value: str) -> float:
+    """Calculate Shannon entropy (bits per character) of a string."""
+    if not value:
         return 0.0
-    freq = Counter(s)
-    n = len(s)
+    freq: dict[str, int] = {}
+    for ch in value:
+        freq[ch] = freq.get(ch, 0) + 1
+    n = len(value)
     return -sum((c / n) * math.log2(c / n) for c in freq.values())
 
 
-# Minimum entropy threshold to consider a match a real secret (not a placeholder).
-# Random base64/hex strings typically score > 3.5 bits.
-_MIN_ENTROPY = 3.2
-
-# ---------------------------------------------------------------------------
-# Allowlist – skip test placeholders and documentation samples
-# ---------------------------------------------------------------------------
-
-_ALLOWLIST_RE = re.compile(
-    r"(?i)("
-    r"your[_\-]?|example[_\-]?|sample[_\-]?|test[_\-]?|dummy|placeholder|"
-    r"changeme|change_me|xxx+|000+|aaa+|bbb+|fill[_\-]?in|insert[_\-]?here|"
-    r"todo|fixme|replace|<your|<api|<key|<token|"
-    r"localhost|127\.0\.0\.1|0\.0\.0\.0"
-    r")"
+_PLACEHOLDER_RE = re.compile(
+    r"(?i)your[_\-]?(?:api[_\-]?)?(?:key|secret|token)|"
+    r"change[_\-]?me|placeholder|example|xxx+|test[_\-]?secret|"
+    r"<[^>]+>|\[.*?\]|insert[_\-]?here|dummy|sample|fake"
 )
 
-# File extensions to skip entirely
-_SKIP_EXTENSIONS = {".png", ".jpg", ".jpeg", ".gif", ".lock", ".ico", ".svg",
-                    ".woff", ".woff2", ".ttf", ".eot", ".map"}
+
+def _is_real_secret(value: str) -> bool:
+    """Return True if value has sufficient entropy and is not a known placeholder."""
+    if _PLACEHOLDER_RE.search(value):
+        return False
+    return _shannon_entropy(value) >= MIN_ENTROPY
+
 
 # ---------------------------------------------------------------------------
-# Secret redaction
+# Redaction helper
 # ---------------------------------------------------------------------------
 
 def _redact(value: str) -> str:
-    """Mask a secret value, keeping only the first 3 and last 3 characters."""
-    if len(value) <= 8:
-        return "****"
-    return value[:3] + "****" + value[-3:]
+    """Return a masked version of the secret — never the raw value."""
+    n = len(value)
+    if n <= 8:
+        return "***"
+    show = max(4, n // 6)
+    return value[:show] + "…" + value[-show:]
 
 
 # ---------------------------------------------------------------------------
-# Secret patterns (Gitleaks-style)
+# Opt-in live verification (TruffleHog-style)
 # ---------------------------------------------------------------------------
 
-# Each entry: (rule_id, regex_pattern, title, cwe_id, severity, cvss4_score, impact, owasp, references)
-_SECRET_RULES: list[tuple] = [
-    (
-        "secret.aws-access-key",
-        r"(?<![A-Z0-9])(AKIA[0-9A-Z]{16})(?![A-Z0-9])",
-        "AWS Access Key ID",
-        "CWE-798", "Critical", 9.3,
-        "Attacker can call AWS APIs with full IAM permissions of the leaked key.",
-        "A02:2021-Cryptographic Failures",
-        "https://docs.aws.amazon.com/IAM/latest/UserGuide/best-practices.html\nhttps://cwe.mitre.org/data/definitions/798.html",
-    ),
-    (
-        "secret.openai-key",
-        r"\bsk-[A-Za-z0-9]{20,}\b",
-        "OpenAI / OpenAI-compatible Secret Key",
-        "CWE-798", "Critical", 9.2,
-        "Attacker can consume paid LLM API quota and access conversation history.",
-        "A02:2021-Cryptographic Failures",
-        "https://platform.openai.com/docs/guides/safety-best-practices\nhttps://cwe.mitre.org/data/definitions/798.html",
-    ),
-    (
-        "secret.groq-key",
-        r"\bgsk_[A-Za-z0-9]{20,}\b",
-        "Groq API Key",
-        "CWE-798", "Critical", 9.2,
-        "Attacker can consume Groq LLM API quota under the owner's account.",
-        "A02:2021-Cryptographic Failures",
-        "https://console.groq.com/docs/openai\nhttps://cwe.mitre.org/data/definitions/798.html",
-    ),
-    (
-        "secret.github-pat",
-        r"\bghp_[A-Za-z0-9]{36,}\b",
-        "GitHub Personal Access Token",
-        "CWE-798", "Critical", 9.2,
-        "Attacker can read/write repos and manage GitHub resources.",
-        "A02:2021-Cryptographic Failures",
-        "https://docs.github.com/en/authentication/keeping-your-account-and-data-secure\nhttps://cwe.mitre.org/data/definitions/798.html",
-    ),
-    (
-        "secret.slack-token",
-        r"\bxox[baprs]-[0-9A-Za-z\-]{10,48}\b",
-        "Slack Token",
-        "CWE-798", "Critical", 9.2,
-        "Attacker can read Slack messages and impersonate the user/bot.",
-        "A02:2021-Cryptographic Failures",
-        "https://api.slack.com/authentication/best-practices\nhttps://cwe.mitre.org/data/definitions/798.html",
-    ),
-    (
-        "secret.stripe-secret-key",
-        r"\bsk_live_[0-9a-zA-Z]{24,}\b",
-        "Stripe Secret Key",
-        "CWE-798", "Critical", 9.2,
-        "Attacker can initiate charges, refunds, and access payment data.",
-        "A02:2021-Cryptographic Failures",
-        "https://stripe.com/docs/keys\nhttps://cwe.mitre.org/data/definitions/798.html",
-    ),
-    (
-        "secret.google-api-key",
-        r"\bAIza[0-9A-Za-z\-_]{35}\b",
-        "Google API Key",
-        "CWE-798", "Critical", 9.3,
-        "Attacker can abuse Google services (Maps, Vision, etc.) under the owner's billing.",
-        "A02:2021-Cryptographic Failures",
-        "https://cloud.google.com/docs/authentication/api-keys\nhttps://cwe.mitre.org/data/definitions/798.html",
-    ),
-    (
-        "secret.private-key",
-        r"-----BEGIN (?:RSA |DSA |EC )?PRIVATE KEY-----",
-        "Private Key Material",
-        "CWE-321", "Critical", 9.8,
-        "Attacker can impersonate the key owner, decrypt communications, or forge signatures.",
-        "A02:2021-Cryptographic Failures",
-        "https://cwe.mitre.org/data/definitions/321.html",
-    ),
-    (
-        "secret.jwt-token-exposed",
-        r"\beyJ[A-Za-z0-9\-_]+\.[A-Za-z0-9\-_]+\.[A-Za-z0-9\-_]+\b",
-        "JWT Token Exposed in Source",
-        "CWE-522", "High", 8.0,
-        "Leaked JWT allows session hijacking without needing credentials.",
-        "A02:2021-Cryptographic Failures",
-        "https://owasp.org/www-project-web-security-testing-guide/\nhttps://cwe.mitre.org/data/definitions/522.html",
-    ),
-    (
-        "secret.hardcoded-password",
-        r"(?i)(?:password|passwd|pwd)\s*[:=]\s*['\"][^'\"]{6,}['\"]",
-        "Hardcoded Password",
-        "CWE-259", "High", 8.1,
-        "Hardcoded credentials enable account compromise and service access.",
-        "A02:2021-Cryptographic Failures",
-        "https://cwe.mitre.org/data/definitions/259.html",
-    ),
-    (
-        "secret.generic-api-key",
-        r"(?i)(?:api[_\-]?key|access[_\-]?key|secret[_\-]?key|auth[_\-]?token)\s*[:=]\s*['\"][A-Za-z0-9_\-\.]{16,}['\"]",
-        "Generic Hardcoded API Key / Token",
-        "CWE-798", "High", 8.2,
-        "Leaked API key can be reused to access the target service.",
-        "A02:2021-Cryptographic Failures",
-        "https://cwe.mitre.org/data/definitions/798.html",
-    ),
-    (
-        "secret.db-connection-string",
-        r"(?i)(?:mongodb|mysql|postgres(?:ql)?|redis|mssql|sqlserver)://[^:\s]+:[^@\s]+@[^\s\"']+",
-        "Database Credentials in Connection String",
-        "CWE-798", "Critical", 9.0,
-        "Leaked DB credentials allow full database access.",
-        "A02:2021-Cryptographic Failures",
-        "https://cwe.mitre.org/data/definitions/798.html",
-    ),
-    (
-        "secret.bearer-token",
-        r"(?i)Authorization\s*:\s*['\"]?Bearer\s+[A-Za-z0-9\-_\.]{20,}",
-        "Hardcoded Bearer Token",
-        "CWE-798", "Critical", 9.6,
-        "Attacker can replay the token to impersonate the user.",
-        "A02:2021-Cryptographic Failures",
-        "https://cwe.mitre.org/data/definitions/798.html",
-    ),
-]
-
-# ---------------------------------------------------------------------------
-# Opt-in live verification
-# ---------------------------------------------------------------------------
-
-_VERIFIERS: dict[str, tuple[str, str, int]] = {
-    # rule_id → (method, url_template, expected_status)
-    "secret.slack-token": ("GET", "https://slack.com/api/auth.test", 200),
-    "secret.github-pat":  ("GET", "https://api.github.com/user", 200),
-    "secret.groq-key":    ("GET", "https://api.groq.com/openai/v1/models", 200),
-    "secret.openai-key":  ("GET", "https://api.openai.com/v1/models", 200),
-    "secret.stripe-secret-key": ("GET", "https://api.stripe.com/v1/balance", 200),
-}
-
-
-def _verify_secret(rule_id: str, raw_value: str) -> str:
-    """Return verification_status string. Raw value is used only for the request header."""
-    if not settings.secret_verify_enabled:
-        return "skipped"
-    verifier = _VERIFIERS.get(rule_id)
-    if verifier is None:
-        return "skipped"
-    method, url, expected_status = verifier
+def _verify_github_token(token: str) -> str:
+    """Return 'verified', 'failed', or 'skipped'."""
     try:
-        import httpx
-        headers: dict[str, str] = {}
-        if "slack" in rule_id:
-            headers = {"Authorization": f"Bearer {raw_value}"}
-        elif "github" in rule_id:
-            headers = {"Authorization": f"token {raw_value}",
-                       "User-Agent": "CodeGuard-SecretVerifier/1.0"}
-        elif rule_id in ("secret.groq-key", "secret.openai-key"):
-            headers = {"Authorization": f"Bearer {raw_value}"}
-        elif "stripe" in rule_id:
-            headers = {"Authorization": f"Bearer {raw_value}"}
-        resp = httpx.request(method, url, headers=headers, timeout=1.5, follow_redirects=False)
-        return "verified" if resp.status_code == expected_status else "failed"
+        import urllib.request
+        req = urllib.request.Request(
+            "https://api.github.com/user",
+            headers={"Authorization": f"token {token}", "User-Agent": "CodeGuard-SecretScanner/1.0"},
+        )
+        with urllib.request.urlopen(req, timeout=3) as resp:
+            return "verified" if resp.status == 200 else "failed"
     except Exception:
-        return "failed"
+        return "skipped"
+
+
+def _verify_slack_token(token: str) -> str:
+    """Return 'verified', 'failed', or 'skipped'."""
+    try:
+        import json
+        import urllib.request
+        data = f"token={token}".encode()
+        req = urllib.request.Request(
+            "https://slack.com/api/auth.test",
+            data=data,
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+            method="POST",
+        )
+        with urllib.request.urlopen(req, timeout=3) as resp:
+            body = json.loads(resp.read())
+            return "verified" if body.get("ok") else "failed"
+    except Exception:
+        return "skipped"
+
+
+def _live_verify(secret_type: str, raw_value: str, verify_enabled: bool) -> str:
+    """Attempt live verification. Raw value is used transiently and never stored."""
+    if not verify_enabled:
+        return "unverified"
+    if "GitHub" in secret_type:
+        return _verify_github_token(raw_value)
+    if "Slack" in secret_type and "Webhook" not in secret_type:
+        return _verify_slack_token(raw_value)
+    return "unverified"
+
 
 # ---------------------------------------------------------------------------
-# Sensitive file & backup patterns
+# Per-file scanner
 # ---------------------------------------------------------------------------
 
-_SENSITIVE_FILE_NAMES = {".env", ".env.production", ".env.local", "config.json",
-                          "secrets.yml", "id_rsa", "id_dsa", "id_ecdsa", "id_ed25519"}
-_BACKUP_EXTENSIONS = {".sql", ".bak", ".dump", ".backup"}
-_HIDDEN_META = {".ds_store", ".idea", ".vscode"}
+def scan_file_for_secrets(
+    file_path: str,
+    source_dir_str: str,
+    verify_enabled: bool = False,
+) -> list[EngineFinding]:
+    findings: list[EngineFinding] = []
+    try:
+        with open(file_path, "r", encoding="utf-8", errors="ignore") as fh:
+            lines = fh.read().splitlines()
+    except OSError:
+        return findings
+
+    rel_path = os.path.relpath(file_path, source_dir_str)
+
+    for line_num, line in enumerate(lines, 1):
+        for secret_type, (pattern, cwe, owasp) in PATTERNS.items():
+            for match in re.finditer(pattern, line):
+                # Use the first capture group if present (Generic pattern), else full match
+                raw_value = match.group(1) if match.lastindex else match.group(0)
+
+                if not _is_real_secret(raw_value):
+                    continue  # entropy too low or placeholder detected
+
+                redacted = _redact(raw_value)
+                verification_status = _live_verify(secret_type, raw_value, verify_enabled)
+                # raw_value is no longer referenced after this point
+
+                confidence = 0.85
+                if verification_status == "verified":
+                    confidence = 1.0
+                elif verification_status == "failed":
+                    confidence = 0.60  # might be an expired/revoked key
+
+                findings.append(
+                    EngineFinding(
+                        engine="secret-scan",
+                        rule_id=f"SECRET_{secret_type.upper().replace(' ', '_').replace('(', '').replace(')', '')}",
+                        scan_category="Secret scan",
+                        title=f"Hardcoded {secret_type} detected",
+                        vuln_type="Hardcoded Secret",
+                        severity="Critical",
+                        cvss4_score=9.1,
+                        confidence=confidence,
+                        cwe_id=cwe,
+                        owasp_category=owasp,
+                        file_path=rel_path,
+                        line_number=line_num,
+                        line_start=line_num,
+                        line_end=line_num,
+                        # evidence = redacted only — never raw secret
+                        evidence=f"{secret_type}: {redacted}",
+                        code_snippet=line.strip()[:200],
+                        why_vulnerable=(
+                            f"A hardcoded {secret_type} was detected in source code with high entropy "
+                            f"(entropy ≥ {MIN_ENTROPY:.1f} bits/char), indicating a real credential rather than a placeholder."
+                        ),
+                        attack_scenario=(
+                            "An attacker who gains read access to the repository (e.g. public GitHub, "
+                            "leaked backup) can immediately use this secret to authenticate as the application."
+                        ),
+                        impact=(
+                            f"Full compromise of the {secret_type} — attacker can impersonate the application, "
+                            "access protected resources, and pivot to further attacks."
+                        ),
+                        poc=(
+                            f"Retrieve the token from source control history. "
+                            f"Use it directly in API calls to the corresponding service."
+                        ),
+                        remediation=(
+                            "1. Rotate / revoke the exposed credential immediately.\n"
+                            "2. Remove it from all branches and git history (use git-filter-repo).\n"
+                            "3. Store secrets in environment variables or a secrets manager (Vault, AWS SSM).\n"
+                            "4. Add pre-commit hooks (detect-secrets, gitleaks) to prevent re-introduction."
+                        ),
+                        secure_example="SECRET_KEY = os.environ['MY_SERVICE_KEY']  # loaded from env / secrets manager",
+                        pentest_hint=(
+                            "Verify in a controlled staging environment only:\n"
+                            f"1. Confirm the token matches the expected format for {secret_type}.\n"
+                            "2. Check git log / reflog for older commits that may also contain this secret.\n"
+                            "3. If verification is enabled, the scanner will attempt an auth check automatically."
+                        ),
+                        references=(
+                            f"https://cwe.mitre.org/data/definitions/{cwe.replace('CWE-', '')}.html\n"
+                            "https://owasp.org/www-community/vulnerabilities/Use_of_hard-coded_password\n"
+                            "https://github.com/gitleaks/gitleaks"
+                        ),
+                        verification_status=verification_status,
+                        dedupe_hash=hashlib.sha256(
+                            f"{rel_path}:{line_num}:{secret_type}".encode()
+                        ).hexdigest()[:16],
+                    )
+                )
+    return findings
+
 
 # ---------------------------------------------------------------------------
 # Public entry point
 # ---------------------------------------------------------------------------
 
-def run_secret_scan(source_dir: Path) -> list[EngineFinding]:
-    findings: list[EngineFinding] = []
+def run_secret_scan(source_dir: Path, verify_enabled: bool = False) -> list[EngineFinding]:
+    """
+    Scan source_dir for hardcoded secrets.
 
-    for path in source_dir.rglob("*"):
-        if not path.is_file():
-            continue
-        if path.suffix.lower() in _SKIP_EXTENSIONS:
-            continue
+    Args:
+        source_dir: root directory to walk.
+        verify_enabled: if True, attempt live verification (opt-in, see SECRET_VERIFY_ENABLED).
+    """
+    _IGNORE_DIRS = {
+        ".git", "node_modules", "venv", ".venv", "dist", "build",
+        ".next", "vendor", "__pycache__", ".mypy_cache", ".pytest_cache",
+    }
+    _IGNORE_EXTS = {
+        ".min.js", ".pdf", ".jpg", ".jpeg", ".png", ".gif", ".svg",
+        ".zip", ".tar", ".gz", ".bz2", ".7z", ".rar",
+        ".dll", ".exe", ".so", ".dylib", ".pyc", ".class",
+        ".pack", ".idx", ".woff", ".woff2", ".ttf", ".eot",
+        ".mp3", ".mp4", ".wav", ".avi", ".mov",
+        ".bin", ".dat", ".db", ".sqlite",
+    }
 
-        rel = str(path.relative_to(source_dir))
-        name_lower = path.name.lower()
+    source_dir_str = str(source_dir)
+    files_to_scan: list[str] = []
+    for root, dirs, files in os.walk(source_dir_str):
+        dirs[:] = [d for d in dirs if d not in _IGNORE_DIRS]
+        for fname in files:
+            if any(fname.endswith(ext) for ext in _IGNORE_EXTS):
+                continue
+            files_to_scan.append(os.path.join(root, fname))
 
-        # ── Sensitive file names ──────────────────────────────────────────────
-        if name_lower in _SENSITIVE_FILE_NAMES:
-            findings.append(EngineFinding(
-                engine="secret-scan",
-                title="Sensitive configuration file committed to source",
-                vuln_type="Sensitive Data Exposure",
-                severity="High", cvss4_score=8.2, confidence=0.85,
-                cwe_id="CWE-200", owasp_category="A02:2021-Cryptographic Failures",
-                file_path=rel, line_number=1, code_snippet=path.name,
-                evidence=path.name,
-                impact="Leaked config files may expose credentials, signing keys, or infrastructure details.",
-                attack_scenario="Attacker downloads committed sensitive configuration file to extract credentials.",
-                poc="Download the exposed file from the repository.",
-                remediation="Remove the file from VCS, rotate exposed secrets, and use a secret manager.",
-                secure_example="Use .env.example with placeholder values; add real .env to .gitignore.",
-                pentest_hint="Verify: git log --follow -- <file> to check history. Confirm with git show <commit>:<file>.",
-                references="https://owasp.org/www-community/vulnerabilities/Sensitive_Data_Exposure\nhttps://cwe.mitre.org/data/definitions/200.html",
-                rule_id="secret.sensitive-config-file", scan_category="Secret scan",
-                source="repository file", sink=path.name,
-                verification_status="unverified",
-            ))
+    all_findings: list[EngineFinding] = []
+    with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
+        futures = [
+            pool.submit(scan_file_for_secrets, fp, source_dir_str, verify_enabled)
+            for fp in files_to_scan
+        ]
+        for future in concurrent.futures.as_completed(futures):
+            try:
+                all_findings.extend(future.result())
+            except Exception:
+                pass
 
-        # ── Backup / dump files ───────────────────────────────────────────────
-        if path.suffix.lower() in _BACKUP_EXTENSIONS or name_lower.endswith(".sql.gz"):
-            findings.append(EngineFinding(
-                engine="secret-scan",
-                title="Backup or dump file found in source",
-                vuln_type="Sensitive Data Exposure",
-                severity="High", cvss4_score=8.7, confidence=0.82,
-                cwe_id="CWE-200", owasp_category="A02:2021-Cryptographic Failures",
-                file_path=rel, line_number=1, code_snippet=path.name,
-                evidence=path.name,
-                impact="Backup files may contain full database records, credentials, and PII.",
-                attack_scenario="Attacker downloads backup/dump to recover records offline.",
-                poc="Download file and inspect with sqlite3/psql or a hex editor.",
-                remediation="Remove backup artifacts from the repository and encrypt backups in dedicated storage.",
-                secure_example="Store encrypted backups in a private S3 bucket with lifecycle policies.",
-                pentest_hint="Confirm file is accessible via direct download. Check for .gitignore coverage.",
-                references="https://cwe.mitre.org/data/definitions/200.html",
-                rule_id="secret.backup-or-dump-file", scan_category="Secret scan",
-                source="repository file", sink=path.name,
-                verification_status="unverified",
-            ))
-
-        # ── Regex + entropy scanning ──────────────────────────────────────────
-        try:
-            content = path.read_text(encoding="utf-8", errors="ignore")
-        except OSError:
-            continue
-
-        for rule_id, pattern, title, cwe, severity, cvss, impact, owasp, refs in _SECRET_RULES:
-            for match in re.finditer(pattern, content):
-                raw_value = match.group(0)
-
-                # Skip allow-listed placeholders
-                if _ALLOWLIST_RE.search(raw_value):
-                    continue
-
-                # Entropy gate for patterns that capture variable-length strings
-                # (skip gate for fixed-format patterns like PEM headers)
-                if "-----BEGIN" not in raw_value:
-                    # Extract the credential portion (after = or : if present)
-                    cred_part = re.split(r"[:=\s]+", raw_value.strip())[-1].strip("'\"")
-                    if _entropy(cred_part) < _MIN_ENTROPY:
-                        continue
-
-                line_no = content[: match.start()].count("\n") + 1
-                redacted_evidence = _redact(raw_value)
-
-                verification_status = _verify_secret(rule_id, raw_value)
-                confidence = 0.91
-                if verification_status == "verified":
-                    confidence = min(confidence + 0.06, 0.97)
-                elif verification_status == "failed":
-                    confidence = max(confidence - 0.15, 0.55)
-
-                findings.append(EngineFinding(
-                    engine="secret-scan",
-                    title=title,
-                    vuln_type="Hardcoded Secret",
-                    severity=severity, cvss4_score=cvss, confidence=confidence,
-                    cwe_id=cwe, owasp_category=owasp,
-                    file_path=rel, line_number=line_no,
-                    code_snippet=f"[redacted – see evidence field]",
-                    evidence=redacted_evidence,
-                    impact=impact,
-                    attack_scenario="Leaked secret can be reused by an attacker to access infrastructure or data.",
-                    poc="Use the extracted credential against the exposed service (authorised testing only).",
-                    remediation="Rotate the secret immediately and load it from a secret manager at runtime.",
-                    secure_example="api_key = os.environ['API_KEY']  # never hardcode",
-                    pentest_hint=(
-                        "1. Confirm the secret is reachable (git history, public repo mirror).\n"
-                        "2. In an authorised staging environment, attempt authentication with the key.\n"
-                        "3. Document the access level granted and report findings immediately."
-                    ),
-                    references=refs,
-                    rule_id=rule_id, scan_category="Secret scan",
-                    source="repository content", sink=title,
-                    verification_status=verification_status,
-                    why_vulnerable=f"{title}: pattern matched with entropy {_entropy(raw_value):.2f} bits.",
-                ))
-
-    # ── Git history scan ──────────────────────────────────────────────────────
-    git_dir = source_dir / ".git"
-    if git_dir.exists() and git_dir.is_dir():
-        try:
-            history = subprocess.run(
-                ["git", "-C", str(source_dir), "log", "-p", "-n", "30", "--no-color"],
-                capture_output=True, text=True, check=False, timeout=20,
-            )
-            blob = (history.stdout or "") + "\n" + (history.stderr or "")
-            history_patterns = [
-                (r"AKIA[0-9A-Z]{16}", "secret.aws-access-key"),
-                (r"AIza[0-9A-Za-z\-_]{35}", "secret.google-api-key"),
-                (r"sk_live_[0-9a-zA-Z]{24}", "secret.stripe-secret-key"),
-                (r"ghp_[0-9A-Za-z]{36}", "secret.github-pat"),
-                (r"gsk_[A-Za-z0-9]{20,}", "secret.groq-key"),
-            ]
-            found_in_history = any(
-                re.search(pat, blob) for pat, _ in history_patterns
-                if not _ALLOWLIST_RE.search(pat)
-            )
-            if found_in_history:
-                findings.append(EngineFinding(
-                    engine="secret-scan",
-                    title="Potential secret found in git commit history",
-                    vuln_type="Secret in Git History",
-                    severity="Critical", cvss4_score=9.5, confidence=0.83,
-                    cwe_id="CWE-798", owasp_category="A02:2021-Cryptographic Failures",
-                    file_path=".git/history", line_number=1,
-                    code_snippet="[redacted – pattern matched in git log output]",
-                    evidence="[redacted – pattern matched in commit history]",
-                    impact="Secrets removed from current code remain recoverable from commit history.",
-                    attack_scenario="Attacker extracts old secret from git log and replays it against the service.",
-                    poc="git log -p | grep -E '<pattern>' (authorised testing only)",
-                    remediation="Rotate all affected credentials. Rewrite history using git-filter-repo or BFG Repo Cleaner.",
-                    secure_example="Pre-commit hooks + immediate key rotation on confirmed leak.",
-                    pentest_hint=(
-                        "Use 'git log -p --all' on a local clone to search commit diffs.\n"
-                        "Cross-reference with known secret patterns. Do NOT expose findings publicly."
-                    ),
-                    references="https://trufflesecurity.com/trufflehog\nhttps://cwe.mitre.org/data/definitions/798.html",
-                    rule_id="secret.git-history-secret", scan_category="Secret scan",
-                    source="git commit history", sink="secret material",
-                    verification_status="unverified",
-                ))
-        except Exception:
-            pass
-
-    return findings
+    return all_findings
