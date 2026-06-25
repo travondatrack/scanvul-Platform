@@ -18,3 +18,16 @@ class EngineFinding:
     poc: str
     remediation: str
     secure_example: str
+    rule_id: str = ""
+    scan_category: str = "SAST source code"
+    source: str = ""
+    sink: str = ""
+    function_name: str = ""
+    why_vulnerable: str = ""
+
+    def __post_init__(self) -> None:
+        if not self.rule_id:
+            base = self.cwe_id or self.vuln_type or self.title
+            self.rule_id = base.lower().replace(" ", "-")
+        if not self.why_vulnerable:
+            self.why_vulnerable = self.attack_scenario

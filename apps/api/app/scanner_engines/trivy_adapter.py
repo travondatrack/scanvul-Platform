@@ -51,6 +51,11 @@ def _dependency_fallback(source_dir: Path) -> list[EngineFinding]:
                             poc=vuln.get("id", "See advisory"),
                             remediation="Upgrade to a fixed version listed by advisory.",
                             secure_example=f'"{name}": "<patched_version>"',
+                            rule_id=vuln.get("id", ""),
+                            scan_category="Dependency scan",
+                            source=f"{name}@{version}",
+                            sink="known vulnerable dependency",
+                            why_vulnerable=f"OSV returned advisory {vuln.get('id', 'unknown')} for {name}@{version}.",
                         )
                     )
         except Exception:
@@ -81,6 +86,11 @@ def _dependency_fallback(source_dir: Path) -> list[EngineFinding]:
                         poc=vuln.get("id", "See advisory"),
                         remediation="Upgrade to a fixed version listed by advisory.",
                         secure_example=f"{pkg.strip()}==<patched_version>",
+                        rule_id=vuln.get("id", ""),
+                        scan_category="Dependency scan",
+                        source=f"{pkg.strip()}=={ver.strip()}",
+                        sink="known vulnerable dependency",
+                        why_vulnerable=f"OSV returned advisory {vuln.get('id', 'unknown')} for {pkg.strip()}=={ver.strip()}.",
                     )
                 )
 
@@ -123,6 +133,66 @@ def run_trivy_dependencies(source_dir: Path) -> list[EngineFinding]:
                     poc=vuln.get("PrimaryURL", "See advisory"),
                     remediation="Upgrade to FixedVersion if available.",
                     secure_example=f"Upgrade to {vuln.get('FixedVersion', 'latest safe version')}",
+                    rule_id=vuln.get("VulnerabilityID", ""),
+                    scan_category="Dependency scan",
+                    source=f"{vuln.get('PkgName', '')}@{vuln.get('InstalledVersion', '')}",
+                    sink="Known vulnerable dependency",
+                    why_vulnerable=(
+                        f"Dependency {vuln.get('PkgName', '')} version "
+                        f"{vuln.get('InstalledVersion', '')} matches advisory "
+                        f"{vuln.get('VulnerabilityID', '')}."
+                    ),
+                )
+            )
+        for secret in result.get("Secrets", []):
+            findings.append(
+                EngineFinding(
+                    engine="trivy",
+                    title=secret.get("Title", "Secret detected"),
+                    vuln_type="Hardcoded Secrets",
+                    severity=str(secret.get("Severity", "HIGH")).capitalize(),
+                    cvss4_score=8.0,
+                    confidence=0.9,
+                    cwe_id="CWE-798",
+                    owasp_category="A02:2021-Cryptographic Failures",
+                    file_path=target,
+                    line_number=int(secret.get("StartLine", 1)),
+                    code_snippet=secret.get("Match", secret.get("Code", {}).get("Lines", "")),
+                    attack_scenario="A committed secret can be reused to access systems or data.",
+                    poc=secret.get("RuleID", "Secret rule matched"),
+                    remediation="Rotate the secret and load it from a vault or runtime environment.",
+                    secure_example="secret = os.environ['SECRET_NAME']",
+                    rule_id=secret.get("RuleID", ""),
+                    scan_category="Secret scan",
+                    source="committed source file",
+                    sink=secret.get("Category", "secret material"),
+                    why_vulnerable="Secret-like material is present in repository content.",
+                )
+            )
+        for misconfig in result.get("Misconfigurations", []):
+            severity = str(misconfig.get("Severity", "MEDIUM")).capitalize()
+            findings.append(
+                EngineFinding(
+                    engine="trivy",
+                    title=misconfig.get("Title", "Configuration issue"),
+                    vuln_type="Security Misconfiguration",
+                    severity=severity if severity in {"Critical", "High", "Medium", "Low"} else "Medium",
+                    cvss4_score=7.0 if severity == "High" else 5.0,
+                    confidence=0.86,
+                    cwe_id="CWE-16",
+                    owasp_category="A05:2021-Security Misconfiguration",
+                    file_path=target,
+                    line_number=int(misconfig.get("CauseMetadata", {}).get("StartLine", 1)),
+                    code_snippet=misconfig.get("Message", ""),
+                    attack_scenario="Insecure deployment or CI configuration can weaken runtime defenses.",
+                    poc=misconfig.get("ID", "Configuration rule matched"),
+                    remediation=misconfig.get("Resolution", "Harden the configuration according to the rule."),
+                    secure_example=misconfig.get("Resolution", "Use least-privilege secure defaults."),
+                    rule_id=misconfig.get("ID", ""),
+                    scan_category="Config scan",
+                    source=target,
+                    sink=misconfig.get("Type", "configuration"),
+                    why_vulnerable=misconfig.get("Description", misconfig.get("Message", "")),
                 )
             )
     return findings

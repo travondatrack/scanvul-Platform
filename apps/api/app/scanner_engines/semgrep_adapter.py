@@ -43,6 +43,7 @@ def run_semgrep(source_dir: Path) -> list[EngineFinding]:
                 poc="Use crafted payload to reach affected code path.",
                 remediation="Validate input, constrain sinks, and use safe APIs.",
                 secure_example="Use allowlist validation and parameterized interfaces.",
+                rule_id=item.get("check_id", ""),
             )
         )
     return findings

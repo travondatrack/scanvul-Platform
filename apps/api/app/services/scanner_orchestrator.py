@@ -12,13 +12,22 @@ from app.scanner_engines.trivy_adapter import run_trivy_dependencies
 from app.services.types import EngineFinding
 
 
+SEVERITY_SCORE = {"Critical": 4, "High": 3, "Medium": 2, "Low": 1, "Info": 0}
+
+
 def calculate_risk(findings: list[EngineFinding]) -> tuple[str, float]:
     if not findings:
         return "Low", 5.0
 
-    weights = {"Critical": 25, "High": 15, "Medium": 8, "Low": 3}
-    total = sum(weights.get(item.severity, 1) for item in findings)
+    weights = {"Critical": 30, "High": 14, "Medium": 6, "Low": 2, "Info": 1}
+    total = sum(weights.get(item.severity, 1) * item.confidence for item in findings)
     capped = min(float(total), 100.0)
+    if any(item.severity == "Critical" for item in findings):
+        capped = max(capped, 85.0)
+    elif any(item.severity == "High" for item in findings):
+        capped = max(capped, 60.0)
+    elif any(item.severity == "Medium" for item in findings):
+        capped = max(capped, 35.0)
 
     if capped >= 85:
         return "Critical", capped
@@ -76,6 +85,170 @@ def detect_language_framework(source_dir: Path) -> tuple[dict, dict]:
         framework_counter["unknown"] = 1
 
     return dict(language_counter), dict(framework_counter)
+
+
+def _scan_category(item: EngineFinding) -> str:
+    title_blob = f"{item.engine} {item.title} {item.vuln_type} {item.file_path}".lower()
+    if "dependency" in title_blob or item.engine == "trivy" and "@" in item.code_snippet:
+        return "Dependency scan"
+    if "secret" in title_blob or any(token in title_blob for token in ["password", "token", "api key", "credential"]):
+        return "Secret scan"
+    if any(item.file_path.lower().endswith(ext) for ext in [".properties", ".xml", ".yml", ".yaml", "dockerfile", ".ini", ".conf"]):
+        return "Config scan"
+    if any(token in title_blob for token in ["config", "cors", "debug", "docker", "ci/cd"]):
+        return "Config scan"
+    return "SAST source code"
+
+
+def _infer_source_sink(item: EngineFinding, context: str = "") -> tuple[str, str]:
+    blob = f"{item.title} {item.vuln_type} {item.code_snippet} {context}".lower()
+    source = item.source
+    sink = item.sink
+
+    source_patterns = [
+        ("request.getparameter", "HTTP request parameter"),
+        ("getparameter(", "HTTP request parameter"),
+        ("getheader(", "HTTP request header"),
+        ("request.args", "HTTP query parameter"),
+        ("request.form", "HTTP form body"),
+        ("req.query", "HTTP query parameter"),
+        ("req.body", "HTTP request body"),
+        ("input(", "stdin/user input"),
+        ("scanner.next", "stdin/user input"),
+        ("user_url", "user-controlled URL"),
+        ("target_url", "user-controlled URL"),
+        ("url", "URL variable"),
+    ]
+    sink_patterns = [
+        ("executequery", "SQL executeQuery"),
+        ("executeupdate", "SQL executeUpdate"),
+        ("cursor.execute", "SQL execute"),
+        ("select", "SQL string construction"),
+        ("runtime.getruntime().exec", "OS command execution"),
+        ("processbuilder", "OS command execution"),
+        ("os.system", "OS command execution"),
+        ("subprocess", "OS command execution"),
+        ("eval(", "dynamic code execution"),
+        ("dangerouslysetinnerhtml", "DOM HTML injection sink"),
+        ("innerhtml", "DOM HTML injection sink"),
+        ("requests.get", "server-side HTTP request"),
+        ("fetch(", "HTTP request sink"),
+    ]
+
+    if not source:
+        source = next((label for needle, label in source_patterns if needle in blob), "")
+    if not sink:
+        sink = next((label for needle, label in sink_patterns if needle in blob), "")
+    return source, sink
+
+
+def _infer_function(source_dir: Path, item: EngineFinding) -> str:
+    if item.function_name:
+        return item.function_name
+
+    path = source_dir / item.file_path
+    if not path.exists() or not path.is_file():
+        return ""
+
+    try:
+        lines = path.read_text(encoding="utf-8", errors="ignore").splitlines()
+    except OSError:
+        return ""
+
+    upper = max(min(item.line_number - 1, len(lines) - 1), 0)
+    patterns = [
+        r"\bdef\s+([A-Za-z_][\w]*)\s*\(",
+        r"\bfunction\s+([A-Za-z_][\w]*)\s*\(",
+        r"\b(?:public|private|protected)?\s*(?:static\s+)?[\w<>\[\],\s]+\s+([A-Za-z_][\w]*)\s*\(",
+        r"\b([A-Za-z_][\w]*)\s*=\s*\([^)]*\)\s*=>",
+    ]
+    for line in range(upper, -1, -1):
+        text = lines[line].strip()
+        for pattern in patterns:
+            match = re.search(pattern, text)
+            if match:
+                return match.group(1)
+    return ""
+
+
+def _line_context(source_dir: Path, item: EngineFinding, radius: int = 10) -> str:
+    path = source_dir / item.file_path
+    if not path.exists() or not path.is_file():
+        return ""
+    try:
+        lines = path.read_text(encoding="utf-8", errors="ignore").splitlines()
+    except OSError:
+        return ""
+    start = max(item.line_number - radius - 1, 0)
+    end = min(item.line_number + radius, len(lines))
+    return "\n".join(lines[start:end])
+
+
+def _rule_id(item: EngineFinding) -> str:
+    if item.rule_id:
+        return item.rule_id
+    category_prefix = {
+        "Secret scan": "secret",
+        "SAST source code": "sast",
+        "Dependency scan": "dep",
+        "Config scan": "config",
+    }.get(item.scan_category, "rule")
+    engine = item.engine.lower().replace(" ", "-")
+    cwe = item.cwe_id.lower() if item.cwe_id else item.vuln_type.lower().replace(" ", "-")
+    return f"{category_prefix}.{engine}.{cwe}"
+
+
+def _calibrate_severity(item: EngineFinding) -> None:
+    blob = f"{item.title} {item.vuln_type} {item.code_snippet} {item.source} {item.sink}".lower()
+    is_injection = any(token in blob for token in ["injection", "sql", "command", "xss", "ssrf"])
+    is_secret = item.scan_category == "Secret scan"
+    is_dependency = item.scan_category == "Dependency scan"
+
+    if is_injection:
+        has_source = bool(item.source)
+        has_sink = bool(item.sink)
+        if has_source and has_sink and item.confidence >= 0.82:
+            item.severity = "Critical"
+            item.cvss4_score = max(item.cvss4_score, 9.0)
+        elif has_source and has_sink:
+            item.severity = "High"
+            item.cvss4_score = min(max(item.cvss4_score, 7.0), 8.9)
+        elif has_sink:
+            item.severity = "Medium"
+            item.cvss4_score = min(max(item.cvss4_score, 5.0), 6.9)
+            item.confidence = min(item.confidence, 0.72)
+        else:
+            item.severity = "Low"
+            item.cvss4_score = min(item.cvss4_score, 3.9)
+            item.confidence = min(item.confidence, 0.55)
+        return
+
+    if is_secret and not re.search(r"(?i)(akia|sk-|ghp_|token|password|secret|private key)", item.code_snippet):
+        item.severity = "Medium"
+        item.cvss4_score = min(item.cvss4_score, 6.9)
+        return
+
+    if is_dependency and "CVE-" not in f"{item.title} {item.poc}":
+        item.severity = "Medium" if item.severity in {"Critical", "High"} else item.severity
+
+
+def _enrich_findings(source_dir: Path, findings: list[EngineFinding]) -> list[EngineFinding]:
+    for item in findings:
+        context = _line_context(source_dir, item)
+        item.scan_category = _scan_category(item)
+        item.source, item.sink = _infer_source_sink(item, context)
+        item.function_name = _infer_function(source_dir, item)
+        if context and item.code_snippet and context.count("\n") <= 24:
+            item.code_snippet = context.strip()
+        item.rule_id = _rule_id(item)
+        if not item.why_vulnerable:
+            item.why_vulnerable = (
+                f"{item.scan_category} finding from {item.engine}. "
+                f"Source: {item.source or 'not proven'}; sink: {item.sink or 'not proven'}. "
+                f"{item.attack_scenario}"
+            )
+        _calibrate_severity(item)
+    return findings
 
 
 def _scan_secrets_and_configs(source_dir: Path) -> list[EngineFinding]:
@@ -277,6 +450,11 @@ def _scan_secrets_and_configs(source_dir: Path) -> list[EngineFinding]:
                     poc="Download and inspect committed sensitive configuration file.",
                     remediation="Move secrets to vault/runtime environment and block sensitive files in VCS.",
                     secure_example="Use .env.example without real values and add .env to .gitignore.",
+                    rule_id="secret.sensitive-config-file",
+                    scan_category="Secret scan",
+                    source="repository file",
+                    sink=path.name,
+                    why_vulnerable="Sensitive configuration files often contain credentials or private runtime settings.",
                 )
             )
 
@@ -298,6 +476,11 @@ def _scan_secrets_and_configs(source_dir: Path) -> list[EngineFinding]:
                     poc="Enumerate hidden files exposed by server/static hosting.",
                     remediation="Exclude hidden metadata files from deployment artifacts.",
                     secure_example="Configure build/deploy ignore rules for .git/.idea/.vscode.",
+                    rule_id="config.hidden-metadata-file",
+                    scan_category="Config scan",
+                    source="repository metadata",
+                    sink=path.name,
+                    why_vulnerable="Hidden metadata can disclose project internals or deployment structure.",
                 )
             )
 
@@ -319,6 +502,11 @@ def _scan_secrets_and_configs(source_dir: Path) -> list[EngineFinding]:
                     poc="Download dump and recover records offline.",
                     remediation="Remove backup artifacts from repository and secure backup storage.",
                     secure_example="Store encrypted backups in dedicated protected storage.",
+                    rule_id="secret.backup-or-dump-file",
+                    scan_category="Secret scan",
+                    source="repository file",
+                    sink=path.name,
+                    why_vulnerable="Backup and dump files may contain credentials, personal data, or database content.",
                 )
             )
 
@@ -341,6 +529,11 @@ def _scan_secrets_and_configs(source_dir: Path) -> list[EngineFinding]:
                         poc="Use extracted credential against exposed service.",
                         remediation="Rotate secret immediately and load from secure secret manager.",
                         secure_example="api_key = os.environ['API_KEY']",
+                        rule_id=f"secret.{label.lower().replace(' ', '-')}",
+                        scan_category="Secret scan",
+                        source="repository content",
+                        sink=label,
+                        why_vulnerable=f"{label} matched secret exposure pattern {cwe}.",
                     )
                 )
 
@@ -362,6 +555,11 @@ def _scan_secrets_and_configs(source_dir: Path) -> list[EngineFinding]:
                     poc="Craft cross-origin request from attacker domain.",
                     remediation="Restrict allowed origins to trusted domains.",
                     secure_example="allow_origins=['https://app.example.com']",
+                    rule_id="config.permissive-cors",
+                    scan_category="Config scan",
+                    source="configuration content",
+                    sink="CORS policy",
+                    why_vulnerable="Wildcard CORS origins can allow untrusted websites to interact with browser-authenticated APIs.",
                 )
             )
 
@@ -394,6 +592,11 @@ def _scan_secrets_and_configs(source_dir: Path) -> list[EngineFinding]:
                         poc="Use git log/show to recover previously committed credentials.",
                         remediation="Rotate keys and rewrite history using filter-repo/BFG if exposure confirmed.",
                         secure_example="Pre-commit secret scan + immediate key rotation on leak.",
+                        rule_id="secret.git-history-secret",
+                        scan_category="Secret scan",
+                        source="git commit history",
+                        sink="secret material",
+                        why_vulnerable="Secrets removed from current files can remain recoverable from commit history.",
                     )
                 )
         except Exception:
@@ -403,15 +606,27 @@ def _scan_secrets_and_configs(source_dir: Path) -> list[EngineFinding]:
 
 
 def _deduplicate_findings(findings: list[EngineFinding]) -> list[EngineFinding]:
-    seen: set[tuple[str, str, int, str]] = set()
-    deduped: list[EngineFinding] = []
+    grouped: dict[tuple[str, str, str, str], EngineFinding] = {}
     for item in findings:
-        key = (item.file_path, item.vuln_type, item.line_number, item.title)
-        if key in seen:
+        key = (
+            item.rule_id,
+            item.file_path,
+            item.function_name or str(item.line_number),
+            item.sink or item.vuln_type,
+        )
+        existing = grouped.get(key)
+        if existing is None:
+            grouped[key] = item
             continue
-        seen.add(key)
-        deduped.append(item)
-    return deduped
+        existing_rank = SEVERITY_SCORE.get(existing.severity, 0)
+        item_rank = SEVERITY_SCORE.get(item.severity, 0)
+        if (item_rank, item.confidence) > (existing_rank, existing.confidence):
+            item.code_snippet = f"{existing.code_snippet}\n...\n{item.code_snippet}"
+            grouped[key] = item
+        else:
+            existing.code_snippet = f"{existing.code_snippet}\n...\n{item.code_snippet}"
+            existing.confidence = max(existing.confidence, item.confidence)
+    return list(grouped.values())
 
 
 def _add_attack_chain_findings(findings: list[EngineFinding]) -> list[EngineFinding]:
@@ -460,6 +675,7 @@ def run_hybrid_scan(source_dir: Path) -> tuple[list[EngineFinding], dict, dict, 
     findings.extend(run_owasp_patterns_scan(source_dir))
     findings.extend(_scan_secrets_and_configs(source_dir))
     findings = _add_attack_chain_findings(findings)
+    findings = _enrich_findings(source_dir, findings)
 
     findings = _deduplicate_findings(findings)
 

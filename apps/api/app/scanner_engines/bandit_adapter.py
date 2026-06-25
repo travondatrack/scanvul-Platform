@@ -41,6 +41,10 @@ def run_bandit(source_dir: Path) -> list[EngineFinding]:
                 poc="Trigger vulnerable function with attacker-controlled input.",
                 remediation="Refactor to secure API and add strict validation.",
                 secure_example="Replace unsafe function with secure equivalent.",
+                rule_id=item.get("test_id", item.get("test_name", "")),
+                scan_category="SAST source code",
+                sink=item.get("test_name", ""),
+                why_vulnerable=item.get("issue_text", ""),
             )
         )
     return findings

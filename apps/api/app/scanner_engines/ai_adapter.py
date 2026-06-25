@@ -37,6 +37,12 @@ def run_ai_contextual_analysis(source_dir: Path) -> list[EngineFinding]:
                     poc="GET /resource/{incrementing-id}",
                     remediation="Enforce tenant/user ownership checks in repository query.",
                     secure_example="findByIdAndOwner(resourceId, currentUser.id)",
+                    rule_id="ai.idor-unscoped-object-lookup",
+                    scan_category="SAST source code",
+                    source="request-controlled identifier",
+                    sink="object lookup",
+                    function_name="findById",
+                    why_vulnerable="Object lookup does not show owner or tenant scoping near the access path.",
                 )
             )
 
@@ -59,6 +65,11 @@ def run_ai_contextual_analysis(source_dir: Path) -> list[EngineFinding]:
                     poc="Send two simultaneous requests to update the same resource.",
                     remediation="Use transactional boundaries and locking primitives.",
                     secure_example="Use mutex/transaction with row-level locking.",
+                    rule_id="ai.concurrent-race-condition",
+                    scan_category="SAST source code",
+                    source="concurrent request or thread",
+                    sink="shared mutable state",
+                    why_vulnerable="Concurrent logic references thread/race behavior without visible locking.",
                 )
             )
 

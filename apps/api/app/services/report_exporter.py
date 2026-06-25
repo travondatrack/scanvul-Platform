@@ -19,6 +19,8 @@ def export_json(scan: Scan, findings: list[Finding]) -> bytes:
             {
                 "id": finding.id,
                 "engine": finding.engine,
+                "ruleId": finding.rule_id,
+                "scanCategory": finding.scan_category,
                 "title": finding.title,
                 "vulnType": finding.vuln_type,
                 "owasp": finding.owasp_category,
@@ -28,7 +30,11 @@ def export_json(scan: Scan, findings: list[Finding]) -> bytes:
                 "confidence": finding.confidence,
                 "file": finding.file_path,
                 "line": finding.line_number,
+                "source": finding.source,
+                "sink": finding.sink,
+                "functionName": finding.function_name,
                 "codeSnippet": finding.code_snippet,
+                "whyVulnerable": finding.why_vulnerable,
                 "attackScenario": finding.attack_scenario,
                 "poc": finding.poc,
                 "remediation": finding.remediation,
@@ -49,7 +55,7 @@ def export_sarif(scan: Scan, findings: list[Finding]) -> bytes:
                 "tool": {"driver": {"name": "CodeGuard AI", "version": "1.0.0"}},
                 "results": [
                     {
-                        "ruleId": finding.cwe_id or finding.vuln_type,
+                        "ruleId": finding.rule_id or finding.cwe_id or finding.vuln_type,
                         "level": finding.severity.lower(),
                         "message": {"text": finding.title},
                         "locations": [
@@ -89,10 +95,12 @@ def export_pdf(scan: Scan, findings: list[Finding]) -> bytes:
             pdf.showPage()
             y = height - 50
         pdf.setFont("Helvetica-Bold", 11)
-        pdf.drawString(40, y, f"[{finding.severity}] {finding.title}")
+        pdf.drawString(40, y, f"[{finding.severity}] {finding.rule_id or finding.engine}: {finding.title}")
         y -= 14
         pdf.setFont("Helvetica", 10)
-        pdf.drawString(40, y, f"{finding.file_path}:{finding.line_number} | CVSS4 {finding.cvss4_score}")
+        pdf.drawString(40, y, f"{finding.file_path}:{finding.line_number} | {finding.scan_category} | {finding.engine}")
+        y -= 14
+        pdf.drawString(40, y, f"Source: {finding.source or 'unknown'} | Sink: {finding.sink or 'unknown'}")
         y -= 20
 
     pdf.save()

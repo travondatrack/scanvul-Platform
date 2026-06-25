@@ -1,6 +1,8 @@
 "use client";
 
+import { CheckCircle2, CircleDashed, Loader2, XCircle } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { cn } from "@/lib/utils";
 
 type Props = {
   scanId: string;
@@ -12,6 +14,7 @@ const API_BASE = "";
 export function ScanProgress({ scanId, initialStatus }: Props) {
   const [status, setStatus] = useState(initialStatus);
   const [tick, setTick] = useState(0);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const refreshedOnce = useRef(false);
   const previousStatus = useRef(initialStatus);
 
@@ -30,6 +33,7 @@ export function ScanProgress({ scanId, initialStatus }: Props) {
         }
         const data = await response.json();
         setStatus(data.status);
+        setLastUpdated(new Date());
         setTick((prev) => prev + 1);
       } catch {
         setTick((prev) => prev + 1);
@@ -71,37 +75,88 @@ export function ScanProgress({ scanId, initialStatus }: Props) {
 
   const label =
     status === "queued"
-      ? "Queued: preparing scan workspace"
+      ? "Preparing scan workspace"
       : status === "running"
-        ? "Running: analyzing source and correlating findings"
+        ? "Analyzing source and correlating findings"
         : status === "completed"
-          ? "Completed: refreshing result view"
+          ? "Result is ready"
           : status === "failed"
-            ? "Failed: refreshing to show final state"
+            ? "Scan failed"
             : `Status: ${status}`;
 
-  const barColor = status === "failed" ? "bg-red-500" : "bg-sky-500";
+  const barColor =
+    status === "failed"
+      ? "bg-red-500"
+      : status === "completed"
+        ? "bg-emerald-500"
+        : "bg-slate-900";
+
+  const steps = [
+    { key: "queued", label: "Queued" },
+    { key: "running", label: "Scanning" },
+    { key: "completed", label: "Done" },
+  ];
+
+  const activeIndex =
+    status === "completed" ? 2 : status === "running" ? 1 : status === "failed" ? -1 : 0;
 
   return (
-    <section className="mb-6 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-      <div className="mb-2 flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-slate-800">Scan Progress</h2>
-        <span className="text-xs font-medium text-slate-600">
+    <section className="scan-surface mb-5 rounded-lg border border-slate-200 bg-white/90 p-4 shadow-sm">
+      <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-sm font-semibold text-slate-800">Scan Progress</h2>
+          <p className="mt-1 text-xs text-slate-500">{label}</p>
+        </div>
+        <span className="rounded-full bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-700">
           {Math.round(progress)}%
         </span>
       </div>
-      <p className="mb-3 text-xs text-slate-600">{label}</p>
+
+      <div className="mb-4 grid grid-cols-3 gap-2">
+        {steps.map((step, index) => {
+          const complete = index < activeIndex || status === "completed";
+          const active = index === activeIndex && status !== "completed";
+          const failed = status === "failed" && index === 1;
+          return (
+            <div
+              key={step.key}
+              className={cn(
+                "flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-semibold",
+                complete && "border-emerald-200 bg-emerald-50 text-emerald-700",
+                active && "border-sky-200 bg-sky-50 text-sky-700",
+                failed && "border-red-200 bg-red-50 text-red-700",
+                !complete && !active && !failed && "border-slate-200 bg-slate-50 text-slate-500",
+              )}
+            >
+              {failed ? (
+                <XCircle className="h-4 w-4" />
+              ) : complete ? (
+                <CheckCircle2 className="h-4 w-4" />
+              ) : active ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <CircleDashed className="h-4 w-4" />
+              )}
+              {step.label}
+            </div>
+          );
+        })}
+      </div>
+
       <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100">
         <div
-          className={`h-full ${barColor} transition-all duration-500 ${
-            status === "queued" || status === "running" ? "animate-pulse" : ""
-          }`}
+          className={cn(
+            "h-full rounded-full transition-all duration-500",
+            barColor,
+            (status === "queued" || status === "running") && "progress-animated",
+          )}
           style={{ width: `${progress}%` }}
         />
       </div>
       {(status === "queued" || status === "running") && (
         <p className="mt-2 text-xs text-slate-500">
-          Auto refresh when scan finishes.
+          Auto refreshes when the scan finishes
+          {lastUpdated ? `; last checked ${lastUpdated.toLocaleTimeString()}` : ""}.
         </p>
       )}
     </section>

@@ -41,6 +41,10 @@ def _regex_js_security_fallback(source_dir: Path) -> list[EngineFinding]:
                         poc="Inject crafted payload into the rendered or executed input path.",
                         remediation="Avoid dynamic execution and sanitize all untrusted data.",
                         secure_example="Use safe APIs and strict output encoding.",
+                        rule_id=f"regex-js.{needle.replace('(', '').lower()}",
+                        scan_category="SAST source code",
+                        sink=needle,
+                        why_vulnerable=f"Potential unsafe JavaScript sink {needle} is present.",
                     )
                 )
     return findings
@@ -80,6 +84,10 @@ def run_eslint_security(source_dir: Path) -> list[EngineFinding]:
                     poc="Trigger the code path using untrusted input.",
                     remediation="Refactor unsafe sinks and add input/output controls.",
                     secure_example="Use safe rendering and strict validation.",
+                    rule_id=msg.get("ruleId") or "",
+                    scan_category="SAST source code",
+                    sink=msg.get("ruleId") or "",
+                    why_vulnerable=msg.get("message", ""),
                 )
             )
     return findings

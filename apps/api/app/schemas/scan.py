@@ -27,6 +27,8 @@ class UploadCompleteRequest(BaseModel):
 class FindingResponse(BaseModel):
     id: int
     engine: str
+    ruleId: str
+    scanCategory: str
     title: str
     vulnType: str
     severity: str
@@ -36,7 +38,11 @@ class FindingResponse(BaseModel):
     owaspCategory: str
     filePath: str
     lineNumber: int
+    source: str
+    sink: str
+    functionName: str
     codeSnippet: str
+    whyVulnerable: str
     attackScenario: str
     poc: str
     remediation: str

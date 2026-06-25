@@ -9,6 +9,7 @@ from app.services.types import EngineFinding
 
 @dataclass
 class PatternRule:
+    rule_id: str
     regex: str
     title: str
     vuln_type: str
@@ -25,6 +26,7 @@ class PatternRule:
 
 RULES: list[PatternRule] = [
     PatternRule(
+        rule_id="config.auth-bypass-flag",
         regex=r"(?i)(allowanonymous|permitall|skip[_-]?auth|auth[_-]?disabled\s*=\s*true)",
         title="Authentication or authorization bypass flag detected",
         vuln_type="Broken Access Control",
@@ -38,6 +40,7 @@ RULES: list[PatternRule] = [
         secure_example="if not current_user.has_permission('resource:read'): raise HTTPException(403)",
     ),
     PatternRule(
+        rule_id="sast.weak-crypto-primitive",
         regex=r"(?i)(md5\(|sha1\(|des\.|rc4|sslv3|tlsv1)",
         title="Weak cryptographic primitive usage",
         vuln_type="Cryptographic Failures",
@@ -51,6 +54,7 @@ RULES: list[PatternRule] = [
         secure_example="hashed = bcrypt.hashpw(password.encode(), bcrypt.gensalt())",
     ),
     PatternRule(
+        rule_id="sast.injection-sink",
         regex=r"(?i)(select\s+.+\+|execute\(f[\"']|subprocess\..*shell\s*=\s*true|os\.system\(|Runtime\.getRuntime\(\)\.exec)",
         title="Potential injection sink with untrusted input",
         vuln_type="Injection",
@@ -65,6 +69,7 @@ RULES: list[PatternRule] = [
         confidence=0.84,
     ),
     PatternRule(
+        rule_id="sast.insecure-design-marker",
         regex=r"(?i)(TODO\s*:\s*security|FIXME\s*:\s*auth|trust client side)",
         title="Insecure design marker in code",
         vuln_type="Insecure Design",
@@ -79,6 +84,7 @@ RULES: list[PatternRule] = [
         confidence=0.62,
     ),
     PatternRule(
+        rule_id="config.security-misconfiguration",
         regex=r"(?i)(debug\s*=\s*true|cors\s*[:=].*\*|origins?\s*=\s*\[?['\"]\*['\"]|default[_-]?password)",
         title="Security misconfiguration pattern",
         vuln_type="Security Misconfiguration",
@@ -92,6 +98,7 @@ RULES: list[PatternRule] = [
         secure_example="DEBUG=False and allow_origins=['https://trusted.example']",
     ),
     PatternRule(
+        rule_id="sast.weak-auth-session",
         regex=r"(?i)(jwt[_-]?secret\s*[:=]\s*['\"].+['\"]|session[_-]?id\s*=\s*request\.args|mfa[_-]?enabled\s*=\s*false)",
         title="Weak authentication/session handling",
         vuln_type="Identification and Authentication Failures",
@@ -105,6 +112,7 @@ RULES: list[PatternRule] = [
         secure_example="JWT secret from vault + secure HttpOnly/SameSite session cookies.",
     ),
     PatternRule(
+        rule_id="config.supply-chain-unsafe-install",
         regex=r"(?i)(curl\s+.+\|\s*(bash|sh)|pip\s+install\s+--trusted-host|npm\s+install\s+--force)",
         title="Software/data integrity anti-pattern",
         vuln_type="Software and Data Integrity Failures",
@@ -118,6 +126,7 @@ RULES: list[PatternRule] = [
         secure_example="Download signed artifact and verify checksum before execution.",
     ),
     PatternRule(
+        rule_id="sast.logging-suppression",
         regex=r"(?i)(except\s+Exception\s*:\s*pass|catch\s*\(.*\)\s*\{\s*\}|logger\.disabled\s*=\s*true)",
         title="Insufficient security logging/monitoring",
         vuln_type="Security Logging and Monitoring Failures",
@@ -132,6 +141,7 @@ RULES: list[PatternRule] = [
         confidence=0.7,
     ),
     PatternRule(
+        rule_id="sast.ssrf-url-sink",
         regex=r"(?i)(requests\.(get|post|put|patch)\(\s*(url|target_url|user_url|request\.|input)|axios\.(get|post)\(\s*(url|target_url|user_url)|fetch\(\s*(url|target_url|user_url))",
         title="Potential SSRF sink with attacker-controlled URL",
         vuln_type="Server-Side Request Forgery (SSRF)",
@@ -148,6 +158,8 @@ RULES: list[PatternRule] = [
 
 
 def _is_text_code_file(path: Path) -> bool:
+    if path.name.lower() in {"dockerfile", "jenkinsfile", ".gitlab-ci.yml"}:
+        return True
     return path.suffix.lower() in {
         ".py",
         ".js",
@@ -166,6 +178,7 @@ def _is_text_code_file(path: Path) -> bool:
         ".ini",
         ".conf",
         ".properties",
+        ".xml",
     }
 
 
@@ -200,6 +213,11 @@ def run_owasp_patterns_scan(source_dir: Path) -> list[EngineFinding]:
                         poc=rule.poc,
                         remediation=rule.remediation,
                         secure_example=rule.secure_example,
+                        rule_id=rule.rule_id,
+                        why_vulnerable=(
+                            f"Pattern rule {rule.rule_id} matched a potential sink. "
+                            "Severity is calibrated later based on source-to-sink evidence."
+                        ),
                     )
                 )
 
