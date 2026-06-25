@@ -27,3 +27,6 @@ Thumbs.db
 
 # Uploads and temporary scan data
 storage/tmp/
+apps/api/storage/
+apps/api/codeguard.db
+apps/api/codeguard.db-*

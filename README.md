@@ -67,16 +67,58 @@ Production-ready hybrid SAST web platform with:
 - Upload size enforcement
 - Isolated temporary scan workspace with cleanup
 
-## Quick Start
+## Quick Start: Local Development
 
-1. Copy environment file:
-   cp .env.example .env
-2. Start stack:
-   docker compose up --build
-3. Open:
+This setup runs without Docker. Local development uses SQLite, local file storage,
+and an in-process background scan thread by default.
+
+1. Copy the environment file:
+
+   ```powershell
+   Copy-Item .env.example .env
+   ```
+
+2. Start the backend:
+
+   ```powershell
+   cd apps/api
+   python -m venv .venv
+   .\.venv\Scripts\Activate.ps1
+   python -m pip install -r requirements.txt
+   python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+   ```
+
+3. In another terminal, start the frontend:
+
+   ```powershell
+   cd apps/web
+   npm install
+   npm run dev
+   ```
+
+4. Open:
+
    - Frontend: http://localhost:3000
    - Backend docs: http://localhost:8000/docs
-   - MinIO console: http://localhost:9001
+
+Local runtime data is stored in:
+
+- `apps/api/codeguard.db`
+- `apps/api/storage/`
+
+## Docker Option
+
+If you prefer the full service stack with PostgreSQL, Redis, MinIO, and Celery:
+
+```powershell
+docker compose up --build
+```
+
+Docker Compose exposes:
+
+- Frontend: http://localhost:3001
+- Backend docs: http://localhost:8001/docs
+- MinIO console: http://localhost:9001
 
 ## Service Layout
 

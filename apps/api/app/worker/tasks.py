@@ -7,8 +7,7 @@ from app.services.scanner_orchestrator import run_hybrid_scan
 from app.worker.celery_app import celery_app
 
 
-@celery_app.task(name="scan.run")
-def run_scan(scan_id: str) -> str:
+def execute_scan(scan_id: str) -> str:
     db = SessionLocal()
     source_dir = None
     try:
@@ -69,3 +68,8 @@ def run_scan(scan_id: str) -> str:
         db.close()
 
     return scan_id
+
+
+@celery_app.task(name="scan.run")
+def run_scan(scan_id: str) -> str:
+    return execute_scan(scan_id)

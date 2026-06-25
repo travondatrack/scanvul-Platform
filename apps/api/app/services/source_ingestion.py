@@ -8,9 +8,8 @@ import tempfile
 import zipfile
 from pathlib import Path
 
-from app.core.config import settings
 from app.models.scan import UploadedAsset
-from app.services.storage import get_s3_client
+from app.services.storage import download_object
 
 
 def _safe_extract_zip(archive_path: Path, destination: Path) -> None:
@@ -42,7 +41,7 @@ def _clone_public_repo(repo_url: str, destination: Path) -> None:
 
 def _materialize_pasted_files(serialized: str, destination: Path) -> None:
     payload = json.loads(serialized)
-    files = payload.get("files", payload if isinstance(payload, list) else [])
+    files = payload if isinstance(payload, list) else payload.get("files", [])
     if not isinstance(files, list):
         raise ValueError("Paste payload must be a list or {files: []}")
 
@@ -60,8 +59,7 @@ def _materialize_pasted_files(serialized: str, destination: Path) -> None:
 
 def _download_uploaded_archive(upload_asset: UploadedAsset, destination: Path) -> Path:
     local_path = destination / upload_asset.file_name
-    client = get_s3_client()
-    client.download_file(settings.minio_bucket, upload_asset.object_key, str(local_path))
+    download_object(upload_asset.object_key, local_path)
     return local_path
 
 

@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import shutil
+from pathlib import Path
+
 import boto3
 from botocore.client import BaseClient
 from botocore.config import Config
@@ -24,7 +27,76 @@ def get_s3_client() -> BaseClient:
     return _s3_client
 
 
+def _local_object_path(object_key: str) -> Path:
+    root = Path(settings.local_storage_path).resolve()
+    path = (root / object_key).resolve()
+    if not str(path).startswith(str(root)):
+        raise ValueError("Unsafe object key")
+    return path
+
+
+def is_local_storage() -> bool:
+    return settings.storage_backend.lower() == "local"
+
+
+def create_upload_url(object_key: str) -> str:
+    if is_local_storage():
+        return f"/api/v1/uploads/{object_key}/data"
+
+    client = get_s3_client()
+    return client.generate_presigned_url(
+        "put_object",
+        Params={
+            "Bucket": settings.minio_bucket,
+            "Key": object_key,
+            "ContentType": "application/octet-stream",
+        },
+        ExpiresIn=settings.presigned_upload_expiry_seconds,
+    )
+
+
+def put_object(object_key: str, content: bytes, content_type: str = "application/octet-stream") -> None:
+    if is_local_storage():
+        path = _local_object_path(object_key)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(content)
+        return
+
+    client = get_s3_client()
+    client.put_object(
+        Bucket=settings.minio_bucket,
+        Key=object_key,
+        Body=content,
+        ContentType=content_type,
+    )
+
+
+def object_exists(object_key: str) -> bool:
+    if is_local_storage():
+        return _local_object_path(object_key).is_file()
+
+    client = get_s3_client()
+    try:
+        client.head_object(Bucket=settings.minio_bucket, Key=object_key)
+        return True
+    except Exception:
+        return False
+
+
+def download_object(object_key: str, destination: Path) -> None:
+    if is_local_storage():
+        shutil.copyfile(_local_object_path(object_key), destination)
+        return
+
+    client = get_s3_client()
+    client.download_file(settings.minio_bucket, object_key, str(destination))
+
+
 def ensure_bucket_exists() -> None:
+    if is_local_storage():
+        Path(settings.local_storage_path).mkdir(parents=True, exist_ok=True)
+        return
+
     client = get_s3_client()
     bucket = settings.minio_bucket
     try:

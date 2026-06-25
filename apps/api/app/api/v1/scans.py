@@ -1,4 +1,5 @@
 import json
+import threading
 from collections import Counter
 from datetime import datetime
 from io import BytesIO
@@ -24,8 +25,8 @@ from app.schemas.scan import (
 )
 from app.services.report_exporter import export_json, export_pdf, export_sarif
 from app.services.security import validate_captcha
-from app.services.storage import get_s3_client
-from app.worker.tasks import run_scan
+from app.services.storage import create_upload_url, object_exists, put_object
+from app.worker.tasks import execute_scan, run_scan
 
 router = APIRouter()
 
@@ -38,7 +39,13 @@ def _queue_scan(payload: ScanCreateRequest, db: Session) -> ScanSummaryResponse:
     db.add(scan)
     db.commit()
     db.refresh(scan)
-    run_scan.delay(scan.id)
+
+    if settings.scan_worker_mode.lower() == "celery":
+        run_scan.delay(scan.id)
+    elif settings.scan_worker_mode.lower() == "inline":
+        execute_scan(scan.id)
+    else:
+        threading.Thread(target=execute_scan, args=(scan.id,), daemon=True).start()
 
     return ScanSummaryResponse(
         id=scan.id,
@@ -101,16 +108,7 @@ async def init_upload(
     db.commit()
     db.refresh(upload)
 
-    s3 = get_s3_client()
-    upload_url = s3.generate_presigned_url(
-        "put_object",
-        Params={
-            "Bucket": settings.minio_bucket,
-            "Key": object_key,
-            "ContentType": "application/octet-stream",
-        },
-        ExpiresIn=settings.presigned_upload_expiry_seconds,
-    )
+    upload_url = create_upload_url(object_key)
 
     return {
         "uploadId": upload.id,
@@ -126,11 +124,8 @@ def complete_upload(payload: UploadCompleteRequest, db: Session = Depends(get_db
     if upload is None:
         raise HTTPException(status_code=404, detail="Upload not found")
 
-    s3 = get_s3_client()
-    try:
-        s3.head_object(Bucket=settings.minio_bucket, Key=upload.object_key)
-    except Exception as exc:
-        raise HTTPException(status_code=400, detail="Uploaded object not found in storage") from exc
+    if not object_exists(upload.object_key):
+        raise HTTPException(status_code=400, detail="Uploaded object not found in storage")
 
     upload.status = "completed"
     db.commit()
@@ -157,13 +152,7 @@ async def upload_archive_data(
     if len(content) > settings.max_upload_bytes:
         raise HTTPException(status_code=413, detail="Upload exceeds max size")
 
-    s3 = get_s3_client()
-    s3.put_object(
-        Bucket=settings.minio_bucket,
-        Key=upload.object_key,
-        Body=content,
-        ContentType="application/octet-stream",
-    )
+    put_object(upload.object_key, content)
 
     upload.status = "uploaded"
     db.commit()

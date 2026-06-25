@@ -6,8 +6,12 @@ class Settings(BaseSettings):
     api_host: str = "0.0.0.0"
     api_port: int = 8000
 
-    database_url: str = "postgresql+psycopg://CHANGE_ME_USER:CHANGE_ME_PASSWORD@localhost:5432/codeguard"
+    database_url: str = "sqlite:///./codeguard.db"
     redis_url: str = "redis://localhost:6379/0"
+
+    scan_worker_mode: str = "thread"
+    storage_backend: str = "local"
+    local_storage_path: str = "./storage"
 
     minio_endpoint: str = "localhost:9000"
     minio_access_key: str = "CHANGE_ME_ACCESS_KEY"
@@ -23,7 +27,7 @@ class Settings(BaseSettings):
     presigned_upload_expiry_seconds: int = 900
     captcha_secret_key: str = ""
 
-    model_config = SettingsConfigDict(env_file=".env", case_sensitive=False)
+    model_config = SettingsConfigDict(env_file=(".env", "../../.env"), case_sensitive=False)
 
 
 settings = Settings()
