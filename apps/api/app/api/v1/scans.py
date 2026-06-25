@@ -159,6 +159,47 @@ async def upload_archive_data(
     return {"uploadId": upload.id, "status": upload.status}
 
 
+def _serialize_finding(item: Finding) -> dict:
+    """Serialize a Finding DB model to a full dict for API responses."""
+    return {
+        "id": item.id,
+        "engine": item.engine,
+        "ruleId": item.rule_id,
+        "scanCategory": item.scan_category,
+        "title": item.title,
+        "vulnType": item.vuln_type,
+        "severity": item.severity,
+        "cvss4": item.cvss4_score,
+        "confidence": item.confidence,
+        "cweId": item.cwe_id,
+        "owaspCategory": item.owasp_category,
+        # Location
+        "filePath": item.file_path,
+        "lineNumber": item.line_number,
+        "lineStart": item.line_start or item.line_number,
+        "lineEnd": item.line_end or item.line_number,
+        # Dataflow
+        "source": item.source,
+        "sink": item.sink,
+        "functionName": item.function_name,
+        "dataflowTrace": item.dataflow_trace or "",
+        # Evidence & explanation (evidence is already redacted)
+        "evidence": item.evidence or "",
+        "codeSnippet": item.code_snippet,
+        "whyVulnerable": item.why_vulnerable,
+        "attackScenario": item.attack_scenario,
+        "impact": item.impact or "",
+        "poc": item.poc,
+        "remediation": item.remediation,
+        "secureExample": item.secure_example,
+        "pentestHint": item.pentest_hint or "",
+        "references": item.references or "",
+        # Triage
+        "verificationStatus": item.verification_status or "unverified",
+        "dedupeHash": item.dedupe_hash or "",
+    }
+
+
 @router.get("/scans/{scan_id}", response_model=ScanDetailResponse)
 def get_scan(scan_id: str, db: Session = Depends(get_db)):
     scan = db.get(Scan, scan_id)
@@ -174,33 +215,7 @@ def get_scan(scan_id: str, db: Session = Depends(get_db)):
         riskPercent=scan.risk_percent,
         languageSummary=json.loads(scan.language_summary or "{}"),
         frameworkSummary=json.loads(scan.framework_summary or "{}"),
-        findings=[
-            {
-                "id": item.id,
-                "engine": item.engine,
-                "ruleId": item.rule_id,
-                "scanCategory": item.scan_category,
-                "title": item.title,
-                "vulnType": item.vuln_type,
-                "severity": item.severity,
-                "cvss4": item.cvss4_score,
-                "confidence": item.confidence,
-                "cweId": item.cwe_id,
-                "owaspCategory": item.owasp_category,
-                "filePath": item.file_path,
-                "lineNumber": item.line_number,
-                "source": item.source,
-                "sink": item.sink,
-                "functionName": item.function_name,
-                "codeSnippet": item.code_snippet,
-                "whyVulnerable": item.why_vulnerable,
-                "attackScenario": item.attack_scenario,
-                "poc": item.poc,
-                "remediation": item.remediation,
-                "secureExample": item.secure_example,
-            }
-            for item in findings
-        ],
+        findings=[_serialize_finding(item) for item in findings],
     )
 
 
@@ -230,12 +245,17 @@ def list_findings(
                 "scanCategory": item.scan_category,
                 "title": item.title,
                 "type": item.vuln_type,
+                "cweId": item.cwe_id,
                 "source": item.source,
                 "sink": item.sink,
                 "file": item.file_path,
-                "line": item.line_number,
+                "lineStart": item.line_start or item.line_number,
+                "lineEnd": item.line_end or item.line_number,
                 "cvss4": item.cvss4_score,
                 "confidence": item.confidence,
+                "verificationStatus": item.verification_status or "unverified",
+                "impact": item.impact or "",
+                "pentestHint": item.pentest_hint or "",
             }
             for item in records
         ],
@@ -266,8 +286,8 @@ def compare_scans(scan_id: str, base_scan_id: str, db: Session = Depends(get_db)
     current_findings = db.scalars(select(Finding).where(Finding.scan_id == current.id)).all()
     base_findings = db.scalars(select(Finding).where(Finding.scan_id == base.id)).all()
 
-    current_keys = {(item.vuln_type, item.file_path, item.line_number) for item in current_findings}
-    base_keys = {(item.vuln_type, item.file_path, item.line_number) for item in base_findings}
+    current_keys = {(item.vuln_type, item.file_path, item.line_start or item.line_number) for item in current_findings}
+    base_keys = {(item.vuln_type, item.file_path, item.line_start or item.line_number) for item in base_findings}
 
     introduced = list(current_keys - base_keys)
     fixed = list(base_keys - current_keys)

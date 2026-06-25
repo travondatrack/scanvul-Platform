@@ -1,0 +1,339 @@
+rules:
+  # ============================================================================
+  # Java (Spring Boot / Servlet) – Taint-Mode Rules
+  # ============================================================================
+
+  - id: java-sqli-taint
+    languages: [java]
+    severity: ERROR
+    mode: taint
+    message: >
+      SQL Injection (taint): user-controlled input flows into a SQL execution sink
+      without parameterisation. Source: $SOURCE → Sink: $SINK
+    metadata:
+      cwe: "CWE-89"
+      owasp: "A03:2021-Injection"
+      vulnerability_class: "SQL Injection"
+      confidence: HIGH
+      impact: >
+        Attacker can extract, modify, or delete database records.
+        In some configurations full OS command execution is possible.
+      pentest_hint: >
+        Use a controlled staging database.
+        Inject a timing payload: ' OR SLEEP(2)-- on the identified parameter.
+        Observe whether the response is delayed to confirm blind SQLi.
+      references:
+        - https://owasp.org/www-community/attacks/SQL_Injection
+        - https://cwe.mitre.org/data/definitions/89.html
+        - https://portswigger.net/web-security/sql-injection
+    pattern-sources:
+      - patterns:
+          - pattern-either:
+              - pattern: (HttpServletRequest $REQ).getParameter(...)
+              - pattern: (HttpServletRequest $REQ).getHeader(...)
+              - pattern: (HttpServletRequest $REQ).getQueryString()
+              - pattern: "@RequestParam $TYPE $VAR"
+              - pattern: "@PathVariable $TYPE $VAR"
+              - pattern: "@RequestBody $TYPE $VAR"
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: (Statement $STMT).executeQuery($SQL)
+              - pattern: (Statement $STMT).executeUpdate($SQL)
+              - pattern: (Statement $STMT).execute($SQL)
+              - pattern: (Statement $STMT).executeBatch()
+              - pattern: (Connection $CONN).prepareStatement($SQL)
+              - pattern: $EM.createNativeQuery($SQL, ...)
+              - pattern: $EM.createQuery($SQL, ...)
+    pattern-sanitizers:
+      - patterns:
+          - pattern-either:
+              - pattern: Integer.parseInt(...)
+              - pattern: Long.parseLong(...)
+              - pattern: (PreparedStatement $PS).setString(...)
+              - pattern: (PreparedStatement $PS).setInt(...)
+
+  # ----------------------------------------------------------------------------
+  - id: java-command-injection-taint
+    languages: [java]
+    severity: ERROR
+    mode: taint
+    message: >
+      Command Injection (taint): user-controlled input flows into OS command execution.
+    metadata:
+      cwe: "CWE-78"
+      owasp: "A03:2021-Injection"
+      vulnerability_class: "OS Command Injection"
+      confidence: HIGH
+      impact: >
+        Attacker can execute arbitrary commands on the server with the application's
+        process privileges, potentially achieving full system compromise.
+      pentest_hint: >
+        In an authorised staging environment, inject a harmless command separator:
+        ; id or && whoami. Confirm execution via response body or out-of-band DNS.
+      references:
+        - https://owasp.org/www-community/attacks/Command_Injection
+        - https://cwe.mitre.org/data/definitions/78.html
+    pattern-sources:
+      - patterns:
+          - pattern-either:
+              - pattern: (HttpServletRequest $REQ).getParameter(...)
+              - pattern: "@RequestParam $TYPE $VAR"
+              - pattern: "@PathVariable $TYPE $VAR"
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: Runtime.getRuntime().exec($CMD)
+              - pattern: (Runtime $RT).exec($CMD)
+              - pattern: new ProcessBuilder($CMD, ...)
+              - pattern: new ProcessBuilder($LIST)
+    pattern-sanitizers:
+      - patterns:
+          - pattern: |
+              java.util.regex.Pattern.compile("^[a-zA-Z0-9_\-]+$").matcher($X).matches()
+
+  # ----------------------------------------------------------------------------
+  - id: java-path-traversal-taint
+    languages: [java]
+    severity: ERROR
+    mode: taint
+    message: >
+      Path Traversal (taint): user-controlled input flows into file system access
+      without normalisation or allowlist validation.
+    metadata:
+      cwe: "CWE-22"
+      owasp: "A01:2021-Broken Access Control"
+      vulnerability_class: "Path Traversal"
+      confidence: HIGH
+      impact: >
+        Attacker can read or overwrite arbitrary files on the server,
+        potentially exposing credentials or source code.
+      pentest_hint: >
+        Inject ../../etc/passwd or ..%2F..%2Fetc%2Fpasswd in the filename parameter.
+        In an authorised environment confirm if file content is reflected in the response.
+      references:
+        - https://owasp.org/www-community/attacks/Path_Traversal
+        - https://cwe.mitre.org/data/definitions/22.html
+    pattern-sources:
+      - patterns:
+          - pattern-either:
+              - pattern: (HttpServletRequest $REQ).getParameter(...)
+              - pattern: "@RequestParam $TYPE $VAR"
+              - pattern: "@PathVariable $TYPE $VAR"
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: new java.io.File($PATH)
+              - pattern: new java.io.FileInputStream($PATH)
+              - pattern: new java.io.FileReader($PATH)
+              - pattern: java.nio.file.Paths.get($PATH, ...)
+    pattern-sanitizers:
+      - patterns:
+          - pattern: $PATH.normalize()
+          - pattern: new java.io.File($BASE, $PATH).getCanonicalPath()
+
+  # ----------------------------------------------------------------------------
+  - id: java-ssrf-taint
+    languages: [java]
+    severity: ERROR
+    mode: taint
+    message: >
+      SSRF (taint): user-controlled input flows into a server-side HTTP request
+      without URL allowlist validation.
+    metadata:
+      cwe: "CWE-918"
+      owasp: "A10:2021-Server-Side Request Forgery"
+      vulnerability_class: "SSRF"
+      confidence: HIGH
+      impact: >
+        Attacker can probe internal services, cloud metadata endpoints
+        (169.254.169.254), and exfiltrate sensitive data.
+      pentest_hint: >
+        In an authorised environment inject http://169.254.169.254/latest/meta-data/
+        as the URL parameter. Observe if AWS/GCP metadata is returned.
+        Use Burp Collaborator or interactsh for blind SSRF confirmation.
+      references:
+        - https://owasp.org/www-community/attacks/Server_Side_Request_Forgery
+        - https://cwe.mitre.org/data/definitions/918.html
+    pattern-sources:
+      - patterns:
+          - pattern-either:
+              - pattern: (HttpServletRequest $REQ).getParameter(...)
+              - pattern: "@RequestParam $TYPE $VAR"
+              - pattern: "@RequestBody $TYPE $BODY"
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: new java.net.URL($URL).openConnection()
+              - pattern: new java.net.URL($URL).openStream()
+              - pattern: (java.net.HttpURLConnection $CONN).connect()
+              - pattern: $WEB_CLIENT.get().uri($URL).retrieve()
+              - pattern: $REST_TEMPLATE.getForEntity($URL, ...)
+    pattern-sanitizers:
+      - patterns:
+          - pattern: $VALIDATOR.validateUrl($URL)
+
+  # ============================================================================
+  # Python (Flask / FastAPI / Django) – Taint-Mode Rules
+  # ============================================================================
+
+  - id: python-sqli-taint
+    languages: [python]
+    severity: ERROR
+    mode: taint
+    message: >
+      SQL Injection (taint): user-controlled input from request flows into a SQL
+      execute sink without parameterisation.
+    metadata:
+      cwe: "CWE-89"
+      owasp: "A03:2021-Injection"
+      vulnerability_class: "SQL Injection"
+      confidence: HIGH
+      impact: >
+        Attacker can extract, modify, or delete database records via crafted input.
+      pentest_hint: >
+        Inject ' OR '1'='1 or ' OR SLEEP(2)-- in query parameters in a staging environment.
+        Use sqlmap with --level=3 --risk=2 on authorised targets.
+      references:
+        - https://owasp.org/www-community/attacks/SQL_Injection
+        - https://cwe.mitre.org/data/definitions/89.html
+    pattern-sources:
+      - patterns:
+          - pattern-either:
+              - pattern: request.args.get(...)
+              - pattern: request.args[...]
+              - pattern: request.form.get(...)
+              - pattern: request.form[...]
+              - pattern: request.json.get(...)
+              - pattern: request.json[...]
+              - pattern: request.values.get(...)
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: $CURSOR.execute($SQL)
+              - pattern: $DB.execute($SQL)
+              - pattern: $SESSION.execute($SQL)
+              - pattern: $ENGINE.execute($SQL)
+    pattern-sanitizers:
+      - patterns:
+          - pattern-either:
+              - pattern: int(...)
+              - pattern: float(...)
+              - pattern: $CURSOR.execute($SQL, ($PARAMS,))
+              - pattern: $CURSOR.execute($SQL, [$PARAMS])
+
+  # ----------------------------------------------------------------------------
+  - id: python-command-injection-taint
+    languages: [python]
+    severity: ERROR
+    mode: taint
+    message: >
+      Command Injection (taint): user-controlled input reaches shell execution sink.
+    metadata:
+      cwe: "CWE-78"
+      owasp: "A03:2021-Injection"
+      vulnerability_class: "OS Command Injection"
+      confidence: HIGH
+      impact: >
+        Attacker can execute arbitrary OS commands with the web process privileges.
+      pentest_hint: >
+        Inject ; id or $(id) in an authorised staging environment.
+        Check response body and out-of-band DNS for blind confirmation.
+      references:
+        - https://owasp.org/www-community/attacks/Command_Injection
+        - https://cwe.mitre.org/data/definitions/78.html
+    pattern-sources:
+      - patterns:
+          - pattern-either:
+              - pattern: request.args.get(...)
+              - pattern: request.form.get(...)
+              - pattern: request.json.get(...)
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: os.system($CMD)
+              - pattern: os.popen($CMD)
+              - pattern: subprocess.run($CMD, ..., shell=True, ...)
+              - pattern: subprocess.call($CMD, ..., shell=True, ...)
+              - pattern: subprocess.Popen($CMD, ..., shell=True, ...)
+              - pattern: eval($CMD)
+    pattern-sanitizers:
+      - patterns:
+          - pattern: shlex.quote(...)
+
+  # ----------------------------------------------------------------------------
+  - id: python-ssrf-taint
+    languages: [python]
+    severity: ERROR
+    mode: taint
+    message: >
+      SSRF (taint): user-controlled URL reaches outgoing HTTP request without
+      allowlist validation.
+    metadata:
+      cwe: "CWE-918"
+      owasp: "A10:2021-Server-Side Request Forgery"
+      vulnerability_class: "SSRF"
+      confidence: HIGH
+      impact: >
+        Attacker can reach internal services and cloud metadata endpoints.
+      pentest_hint: >
+        In an authorised environment test with http://169.254.169.254/latest/meta-data/
+        Use Burp Collaborator or interactsh for blind SSRF detection.
+      references:
+        - https://owasp.org/www-community/attacks/Server_Side_Request_Forgery
+        - https://cwe.mitre.org/data/definitions/918.html
+    pattern-sources:
+      - patterns:
+          - pattern-either:
+              - pattern: request.args.get(...)
+              - pattern: request.form.get(...)
+              - pattern: request.json.get(...)
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: requests.get($URL, ...)
+              - pattern: requests.post($URL, ...)
+              - pattern: requests.request($METHOD, $URL, ...)
+              - pattern: httpx.get($URL, ...)
+              - pattern: httpx.post($URL, ...)
+              - pattern: urllib.request.urlopen($URL)
+    pattern-sanitizers:
+      - patterns:
+          - pattern: $VALIDATOR.validate_url($URL)
+
+  # ----------------------------------------------------------------------------
+  - id: python-path-traversal-taint
+    languages: [python]
+    severity: ERROR
+    mode: taint
+    message: >
+      Path Traversal (taint): user-controlled input flows into file system access
+      without normalisation.
+    metadata:
+      cwe: "CWE-22"
+      owasp: "A01:2021-Broken Access Control"
+      vulnerability_class: "Path Traversal"
+      confidence: HIGH
+      impact: >
+        Attacker can read arbitrary files, potentially exposing secrets or source code.
+      pentest_hint: >
+        Inject ../../etc/passwd or ..%2F..%2Fetc%2Fpasswd in the filename parameter.
+        In staging, check if /etc/passwd content is returned in the response.
+      references:
+        - https://owasp.org/www-community/attacks/Path_Traversal
+        - https://cwe.mitre.org/data/definitions/22.html
+    pattern-sources:
+      - patterns:
+          - pattern-either:
+              - pattern: request.args.get(...)
+              - pattern: request.form.get(...)
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: open($PATH, ...)
+              - pattern: pathlib.Path($PATH).read_text(...)
+              - pattern: pathlib.Path($PATH).open(...)
+    pattern-sanitizers:
+      - patterns:
+          - pattern: os.path.realpath(...)
+          - pattern: pathlib.Path($BASE).joinpath($PATH).resolve()

@@ -36,17 +36,34 @@ class FindingResponse(BaseModel):
     confidence: float
     cweId: str
     owaspCategory: str
+
+    # Location
     filePath: str
     lineNumber: int
+    lineStart: int
+    lineEnd: int
+
+    # Dataflow
     source: str
     sink: str
     functionName: str
+    dataflowTrace: str
+
+    # Evidence & explanation
+    evidence: str          # redacted match – never raw credentials
     codeSnippet: str
     whyVulnerable: str
     attackScenario: str
+    impact: str
     poc: str
     remediation: str
     secureExample: str
+    pentestHint: str       # authorized safe verification steps
+    references: str        # newline-separated CWE/OWASP/vendor links
+
+    # Triage
+    verificationStatus: str   # unverified|verified|failed|skipped|needs_review|false_positive_likely
+    dedupeHash: str
 
 
 class ScanSummaryResponse(BaseModel):

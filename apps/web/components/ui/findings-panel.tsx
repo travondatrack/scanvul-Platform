@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronDown, FileCode2, Search } from "lucide-react";
+import { ChevronDown, FileCode2, ExternalLink, Search, ShieldCheck, ShieldAlert, ShieldX, HelpCircle, SkipForward } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { cn } from "@/lib/utils";
@@ -14,17 +14,28 @@ type FindingItem = {
   title: string;
   filePath: string;
   lineNumber: number;
+  lineStart: number;
+  lineEnd: number;
   source: string;
   sink: string;
   functionName: string;
   whyVulnerable: string;
   attackScenario: string;
+  impact: string;
   remediation: string;
   poc: string;
   codeSnippet: string;
+  evidence: string;
+  pentestHint: string;
+  references: string;
   cvss4: number;
   confidence: number;
+  verificationStatus: string;
+  dedupeHash: string;
+  dataflowTrace: string;
   vulnType?: string;
+  cweId?: string;
+  owaspCategory?: string;
 };
 
 const severityRank: Record<string, number> = {
@@ -41,6 +52,40 @@ const severityTone: Record<string, string> = {
   Low: "border-emerald-200 bg-emerald-50 text-emerald-700",
 };
 
+// Verification status badge config
+const verificationConfig: Record<string, { label: string; icon: React.FC<{ className?: string }>; cls: string }> = {
+  verified: {
+    label: "Verified",
+    icon: ShieldCheck,
+    cls: "border-emerald-300 bg-emerald-50 text-emerald-700",
+  },
+  unverified: {
+    label: "Unverified",
+    icon: HelpCircle,
+    cls: "border-slate-300 bg-slate-50 text-slate-600",
+  },
+  needs_review: {
+    label: "Needs Review",
+    icon: ShieldAlert,
+    cls: "border-amber-300 bg-amber-50 text-amber-700",
+  },
+  false_positive_likely: {
+    label: "FP Likely",
+    icon: ShieldX,
+    cls: "border-red-200 bg-red-50 text-red-500 line-through",
+  },
+  skipped: {
+    label: "Skipped",
+    icon: SkipForward,
+    cls: "border-slate-200 bg-slate-50 text-slate-400",
+  },
+  failed: {
+    label: "Verify Failed",
+    icon: ShieldX,
+    cls: "border-orange-200 bg-orange-50 text-orange-600",
+  },
+};
+
 function inferLanguage(filePath: string): string {
   const lowered = filePath.toLowerCase();
   if (lowered.endsWith(".py")) return "python";
@@ -51,12 +96,54 @@ function inferLanguage(filePath: string): string {
   return "other";
 }
 
+function VerificationBadge({ status }: { status: string }) {
+  const cfg = verificationConfig[status] ?? verificationConfig.unverified;
+  const Icon = cfg.icon;
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-semibold",
+        cfg.cls,
+      )}
+    >
+      <Icon className="h-3 w-3" />
+      {cfg.label}
+    </span>
+  );
+}
+
+function ReferenceLinks({ references }: { references: string }) {
+  if (!references) return null;
+  const links = references
+    .split(/[\n,]+/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+  return (
+    <div className="mt-3 space-y-1">
+      {links.map((link) => (
+        <a
+          key={link}
+          href={link}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline"
+        >
+          <ExternalLink className="h-3 w-3" />
+          {link.replace(/^https?:\/\//, "").slice(0, 60)}
+        </a>
+      ))}
+    </div>
+  );
+}
+
 export function FindingsPanel({ findings }: { findings: FindingItem[] }) {
   const [severity, setSeverity] = useState("All");
   const [query, setQuery] = useState("");
   const [language, setLanguage] = useState("All");
   const [sortBy, setSortBy] = useState("risk");
+  const [verStatus, setVerStatus] = useState("All");
   const [expanded, setExpanded] = useState<number | null>(findings[0]?.id ?? null);
+  const [activeTab, setActiveTab] = useState<Record<number, string>>({});
 
   const filtered = useMemo(() => {
     return findings
@@ -70,7 +157,10 @@ export function FindingsPanel({ findings }: { findings: FindingItem[] }) {
           item.filePath,
           item.source,
           item.sink,
+          item.cweId,
+          item.owaspCategory,
           item.attackScenario,
+          item.impact,
           item.remediation,
         ]
           .filter(Boolean)
@@ -79,40 +169,37 @@ export function FindingsPanel({ findings }: { findings: FindingItem[] }) {
         const severityOk = severity === "All" || item.severity === severity;
         const queryOk = !query || haystack.includes(query.toLowerCase());
         const languageOk =
-          language === "All" ||
-          inferLanguage(item.filePath) === language.toLowerCase();
-        return severityOk && queryOk && languageOk;
+          language === "All" || inferLanguage(item.filePath) === language.toLowerCase();
+        const verOk = verStatus === "All" || item.verificationStatus === verStatus;
+        return severityOk && queryOk && languageOk && verOk;
       })
       .sort((a, b) => {
-        if (sortBy === "confidence") {
-          return b.confidence - a.confidence;
-        }
-        if (sortBy === "file") {
-          return a.filePath.localeCompare(b.filePath);
-        }
+        if (sortBy === "confidence") return b.confidence - a.confidence;
+        if (sortBy === "file") return a.filePath.localeCompare(b.filePath);
         return (
           (severityRank[b.severity] ?? 0) - (severityRank[a.severity] ?? 0) ||
           b.cvss4 - a.cvss4
         );
       });
-  }, [findings, language, query, severity, sortBy]);
+  }, [findings, language, query, severity, sortBy, verStatus]);
 
   return (
     <div>
-      <div className="mb-4 grid gap-2 lg:grid-cols-[1fr_160px_160px_160px]">
+      {/* Filters */}
+      <div className="mb-4 grid gap-2 lg:grid-cols-[1fr_140px_140px_160px_140px]">
         <label className="relative block">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
           <input
             value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search findings"
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search findings…"
             className="h-10 w-full rounded-lg border border-slate-300 bg-white pl-9 pr-3 text-sm outline-none transition focus:border-slate-900 focus:ring-4 focus:ring-slate-200"
           />
         </label>
 
         <select
           value={severity}
-          onChange={(event) => setSeverity(event.target.value)}
+          onChange={(e) => setSeverity(e.target.value)}
           className="h-10 rounded-lg border border-slate-300 bg-white px-2 text-sm"
         >
           <option value="All">All severity</option>
@@ -124,7 +211,7 @@ export function FindingsPanel({ findings }: { findings: FindingItem[] }) {
 
         <select
           value={language}
-          onChange={(event) => setLanguage(event.target.value)}
+          onChange={(e) => setLanguage(e.target.value)}
           className="h-10 rounded-lg border border-slate-300 bg-white px-2 text-sm"
         >
           <option value="All">All language</option>
@@ -137,8 +224,22 @@ export function FindingsPanel({ findings }: { findings: FindingItem[] }) {
         </select>
 
         <select
+          value={verStatus}
+          onChange={(e) => setVerStatus(e.target.value)}
+          className="h-10 rounded-lg border border-slate-300 bg-white px-2 text-sm"
+        >
+          <option value="All">All status</option>
+          <option value="verified">Verified</option>
+          <option value="needs_review">Needs Review</option>
+          <option value="unverified">Unverified</option>
+          <option value="false_positive_likely">FP Likely</option>
+          <option value="skipped">Skipped</option>
+          <option value="failed">Verify Failed</option>
+        </select>
+
+        <select
           value={sortBy}
-          onChange={(event) => setSortBy(event.target.value)}
+          onChange={(e) => setSortBy(e.target.value)}
           className="h-10 rounded-lg border border-slate-300 bg-white px-2 text-sm"
         >
           <option value="risk">Sort by risk</option>
@@ -159,12 +260,19 @@ export function FindingsPanel({ findings }: { findings: FindingItem[] }) {
         <div className="space-y-3">
           {filtered.map((item, index) => {
             const isOpen = expanded === item.id;
+            const tab = activeTab[item.id] ?? "evidence";
+            const lineRange =
+              item.lineStart && item.lineEnd && item.lineEnd !== item.lineStart
+                ? `L${item.lineStart}–${item.lineEnd}`
+                : `L${item.lineStart || item.lineNumber}`;
+
             return (
               <article
                 key={item.id}
                 className="animate-fade-up overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm"
                 style={{ animationDelay: `${Math.min(index * 35, 180)}ms` }}
               >
+                {/* Header row */}
                 <button
                   type="button"
                   onClick={() => setExpanded(isOpen ? null : item.id)}
@@ -189,11 +297,23 @@ export function FindingsPanel({ findings }: { findings: FindingItem[] }) {
                       <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-600">
                         {item.scanCategory}
                       </span>
+                      <VerificationBadge status={item.verificationStatus} />
+                      {item.cweId && (
+                        <a
+                          href={`https://cwe.mitre.org/data/definitions/${item.cweId.replace("CWE-", "")}.html`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          className="rounded-full border border-blue-200 bg-blue-50 px-2 py-0.5 text-xs font-semibold text-blue-700 hover:bg-blue-100"
+                        >
+                          {item.cweId}
+                        </a>
+                      )}
                     </div>
                     <h3 className="font-semibold text-slate-950">{item.title}</h3>
                     <p className="mt-1 flex min-w-0 items-center gap-1 truncate font-mono text-xs text-slate-500">
                       <FileCode2 className="h-3.5 w-3.5 shrink-0" />
-                      {item.filePath}:{item.lineNumber}
+                      {item.filePath}:{lineRange}
                     </p>
                   </div>
                   <ChevronDown
@@ -204,9 +324,11 @@ export function FindingsPanel({ findings }: { findings: FindingItem[] }) {
                   />
                 </button>
 
-                {isOpen ? (
-                  <div className="border-t border-slate-200 p-4">
-                    <div className="mb-3 grid gap-2 md:grid-cols-2 xl:grid-cols-4">
+                {/* Detail panel */}
+                {isOpen && (
+                  <div className="border-t border-slate-200">
+                    {/* Metadata strip */}
+                    <div className="grid gap-2 p-4 md:grid-cols-2 xl:grid-cols-4">
                       {[
                         ["Rule ID", item.ruleId || "unknown"],
                         ["Engine", item.engine],
@@ -214,52 +336,168 @@ export function FindingsPanel({ findings }: { findings: FindingItem[] }) {
                         ["Sink", item.sink || "not proven"],
                       ].map(([label, value]) => (
                         <div key={label} className="rounded-lg bg-slate-50 p-3">
-                          <p className="text-xs font-bold uppercase text-slate-500">
-                            {label}
-                          </p>
-                          <p className="mt-1 break-words font-mono text-xs text-slate-800">
-                            {value}
-                          </p>
+                          <p className="text-xs font-bold uppercase text-slate-500">{label}</p>
+                          <p className="mt-1 break-words font-mono text-xs text-slate-800">{value}</p>
                         </div>
                       ))}
                     </div>
-                    <pre className="max-h-72 overflow-auto rounded-lg bg-slate-950 p-3 text-xs text-slate-100">
-                      {item.codeSnippet || "No snippet available"}
-                    </pre>
-                    <div className="mt-3 grid gap-3 md:grid-cols-2">
-                      <div>
-                        <h4 className="text-xs font-bold uppercase text-slate-500">
-                          Why vulnerable
-                        </h4>
-                        <p className="mt-1 text-sm text-slate-700">
-                          {item.whyVulnerable || item.attackScenario}
-                        </p>
-                      </div>
-                      <div>
-                        <h4 className="text-xs font-bold uppercase text-slate-500">
-                          Attack
-                        </h4>
-                        <p className="mt-1 text-sm text-slate-700">
-                          {item.attackScenario}
-                        </p>
-                      </div>
-                      <div>
-                        <h4 className="text-xs font-bold uppercase text-slate-500">
-                          PoC
-                        </h4>
-                        <p className="mt-1 text-sm text-slate-700">{item.poc}</p>
-                      </div>
-                      <div>
-                        <h4 className="text-xs font-bold uppercase text-slate-500">
-                          Fix
-                        </h4>
-                        <p className="mt-1 text-sm text-slate-700">
-                          {item.remediation}
-                        </p>
+
+                    {/* Tabs */}
+                    <div className="border-t border-slate-100 px-4">
+                      <div className="flex gap-1 overflow-x-auto py-2">
+                        {["evidence", "impact", "fix", "pentest", "references"].map((t) => (
+                          <button
+                            key={t}
+                            type="button"
+                            onClick={() => setActiveTab((prev) => ({ ...prev, [item.id]: t }))}
+                            className={cn(
+                              "rounded-md px-3 py-1.5 text-xs font-semibold capitalize transition",
+                              tab === t
+                                ? "bg-slate-900 text-white"
+                                : "text-slate-600 hover:bg-slate-100",
+                            )}
+                          >
+                            {t === "pentest" ? "Pentest Hints" : t.charAt(0).toUpperCase() + t.slice(1)}
+                          </button>
+                        ))}
                       </div>
                     </div>
+
+                    <div className="px-4 pb-4">
+                      {/* Evidence tab */}
+                      {tab === "evidence" && (
+                        <div className="space-y-3">
+                          {item.evidence && (
+                            <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
+                              <p className="mb-1 text-xs font-bold uppercase text-amber-700">
+                                Evidence (redacted)
+                              </p>
+                              <code className="text-xs text-amber-900">{item.evidence}</code>
+                            </div>
+                          )}
+                          <pre className="max-h-72 overflow-auto rounded-lg bg-slate-950 p-3 text-xs text-slate-100">
+                            {item.codeSnippet || "No snippet available"}
+                          </pre>
+                          <div className="grid gap-3 md:grid-cols-2">
+                            <div>
+                              <h4 className="text-xs font-bold uppercase text-slate-500">
+                                Why vulnerable
+                              </h4>
+                              <p className="mt-1 text-sm text-slate-700">
+                                {item.whyVulnerable || item.attackScenario}
+                              </p>
+                            </div>
+                            <div>
+                              <h4 className="text-xs font-bold uppercase text-slate-500">Attack</h4>
+                              <p className="mt-1 text-sm text-slate-700">{item.attackScenario}</p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Impact tab */}
+                      {tab === "impact" && (
+                        <div className="space-y-3">
+                          <div className="rounded-lg border border-red-100 bg-red-50 p-4">
+                            <h4 className="mb-2 text-xs font-bold uppercase text-red-700">
+                              Security Impact
+                            </h4>
+                            <p className="text-sm text-red-900">
+                              {item.impact || item.attackScenario || "No impact description available."}
+                            </p>
+                          </div>
+                          <div>
+                            <h4 className="text-xs font-bold uppercase text-slate-500">PoC</h4>
+                            <p className="mt-1 text-sm text-slate-700">{item.poc}</p>
+                          </div>
+                          {item.owaspCategory && (
+                            <div className="rounded-lg bg-slate-50 p-3">
+                              <p className="text-xs font-bold uppercase text-slate-500">OWASP</p>
+                              <p className="mt-1 text-xs font-mono text-slate-700">{item.owaspCategory}</p>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Fix tab */}
+                      {tab === "fix" && (
+                        <div className="space-y-3">
+                          <div className="rounded-lg border border-emerald-100 bg-emerald-50 p-4">
+                            <h4 className="mb-2 text-xs font-bold uppercase text-emerald-700">
+                              Remediation
+                            </h4>
+                            <p className="text-sm text-emerald-900">{item.remediation}</p>
+                          </div>
+                          {item.codeSnippet && (
+                            <div>
+                              <h4 className="mb-1 text-xs font-bold uppercase text-slate-500">
+                                Secure Example
+                              </h4>
+                              <pre className="overflow-auto rounded-lg bg-slate-950 p-3 text-xs text-emerald-300">
+                                {/* secureExample from parent – passed via findings */}
+                              </pre>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Pentest Hints tab */}
+                      {tab === "pentest" && (
+                        <div className="space-y-3">
+                          <div className="rounded-lg border border-blue-100 bg-blue-50 p-4">
+                            <h4 className="mb-2 text-xs font-bold uppercase text-blue-700">
+                              Authorised Verification Steps
+                            </h4>
+                            {item.pentestHint ? (
+                              <ul className="space-y-1">
+                                {item.pentestHint.split("\n").filter(Boolean).map((line, i) => (
+                                  <li key={i} className="flex gap-2 text-sm text-blue-900">
+                                    <span className="mt-0.5 shrink-0 font-bold text-blue-500">→</span>
+                                    <span>{line.replace(/^\d+\.\s*/, "")}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            ) : (
+                              <p className="text-sm text-blue-800">
+                                No pentest hints available for this finding.
+                              </p>
+                            )}
+                          </div>
+                          <div className="rounded-lg border border-amber-100 bg-amber-50 p-3 text-xs text-amber-800">
+                            ⚠️ Only perform verification steps in authorised environments using staging/test accounts.
+                          </div>
+                        </div>
+                      )}
+
+                      {/* References tab */}
+                      {tab === "references" && (
+                        <div>
+                          <h4 className="mb-2 text-xs font-bold uppercase text-slate-500">
+                            External References
+                          </h4>
+                          {item.references ? (
+                            <ReferenceLinks references={item.references} />
+                          ) : (
+                            <p className="text-sm text-slate-500">No references available.</p>
+                          )}
+                          {item.cweId && (
+                            <div className="mt-3">
+                              <a
+                                href={`https://cwe.mitre.org/data/definitions/${item.cweId.replace("CWE-", "")}.html`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 text-sm font-semibold text-blue-600 hover:underline"
+                              >
+                                <ExternalLink className="h-4 w-4" />
+                                {item.cweId} – CWE Mitre
+                              </a>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   </div>
-                ) : null}
+                )}
               </article>
             );
           })}

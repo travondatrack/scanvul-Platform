@@ -7,6 +7,46 @@ from app.services.scanner_orchestrator import run_hybrid_scan
 from app.worker.celery_app import celery_app
 
 
+def _finding_kwargs(item) -> dict:
+    """Map an EngineFinding dataclass to Finding model keyword arguments."""
+    return dict(
+        engine=item.engine,
+        rule_id=item.rule_id,
+        scan_category=item.scan_category,
+        title=item.title,
+        vuln_type=item.vuln_type,
+        severity=item.severity,
+        cvss4_score=item.cvss4_score,
+        confidence=item.confidence,
+        cwe_id=item.cwe_id,
+        owasp_category=item.owasp_category,
+        # Location
+        file_path=item.file_path,
+        line_number=item.line_start or item.line_number,
+        line_start=item.line_start,
+        line_end=item.line_end,
+        # Dataflow
+        source=item.source,
+        sink=item.sink,
+        function_name=item.function_name,
+        dataflow_trace=item.dataflow_trace,
+        # Evidence & explanation
+        evidence=item.evidence,
+        code_snippet=item.code_snippet,
+        why_vulnerable=item.why_vulnerable,
+        attack_scenario=item.attack_scenario,
+        impact=item.impact,
+        poc=item.poc,
+        remediation=item.remediation,
+        secure_example=item.secure_example,
+        pentest_hint=item.pentest_hint,
+        references=item.references,
+        # Triage
+        verification_status=item.verification_status,
+        dedupe_hash=item.dedupe_hash,
+    )
+
+
 def execute_scan(scan_id: str) -> str:
     db = SessionLocal()
     source_dir = None
@@ -28,32 +68,7 @@ def execute_scan(scan_id: str) -> str:
         db.query(Finding).filter(Finding.scan_id == scan.id).delete()
 
         for item in findings:
-            db.add(
-                Finding(
-                    scan_id=scan.id,
-                    engine=item.engine,
-                    rule_id=item.rule_id,
-                    scan_category=item.scan_category,
-                    title=item.title,
-                    vuln_type=item.vuln_type,
-                    severity=item.severity,
-                    cvss4_score=item.cvss4_score,
-                    confidence=item.confidence,
-                    cwe_id=item.cwe_id,
-                    owasp_category=item.owasp_category,
-                    file_path=item.file_path,
-                    line_number=item.line_number,
-                    source=item.source,
-                    sink=item.sink,
-                    function_name=item.function_name,
-                    code_snippet=item.code_snippet,
-                    why_vulnerable=item.why_vulnerable,
-                    attack_scenario=item.attack_scenario,
-                    poc=item.poc,
-                    remediation=item.remediation,
-                    secure_example=item.secure_example,
-                )
-            )
+            db.add(Finding(scan_id=scan.id, **_finding_kwargs(item)))
 
         scan.language_summary = json.dumps(language_summary)
         scan.framework_summary = json.dumps(framework_summary)

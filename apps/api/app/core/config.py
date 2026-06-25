@@ -18,16 +18,32 @@ class Settings(BaseSettings):
     minio_secret_key: str = "CHANGE_ME_SECRET_KEY"
     minio_bucket: str = "scans"
 
+    # LLM / AI triage settings
+    # Supported providers: openai, groq
+    # For Groq, set llm_base_url=https://api.groq.com/openai/v1
     llm_provider: str = "openai"
     llm_model: str = "gpt-4o-mini"
     llm_api_key: str = ""
+    llm_base_url: str = ""  # override base URL for compatible providers (e.g. Groq)
+
+    # Scanner flags
+    # Enable dynamic SQLite auto-migration for local dev only.
+    # In production with PostgreSQL, use explicit Alembic migrations.
+    enable_dev_auto_migration: bool = False
+    # Enable TruffleHog-style live secret verification (opt-in).
+    # When enabled, a short outgoing HTTP check is made to verify if a secret is active.
+    secret_verify_enabled: bool = False
 
     max_upload_bytes: int = 524288000
     rate_limit_per_minute: int = 60
     presigned_upload_expiry_seconds: int = 900
     captcha_secret_key: str = ""
 
-    model_config = SettingsConfigDict(env_file=(".env", "../../.env"), case_sensitive=False)
+    model_config = SettingsConfigDict(
+        env_file=(".env", "../../.env"),
+        case_sensitive=False,
+        extra="ignore",  # ignore NEXT_PUBLIC_* and other frontend-only vars in shared .env
+    )
 
 
 settings = Settings()
