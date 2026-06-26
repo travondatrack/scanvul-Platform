@@ -11,10 +11,10 @@ const fonts = {
   },
 };
 
-const PdfPrinterClass = PdfPrinter as any;
-const printer = new PdfPrinterClass(fonts);
-
 export async function generatePdfReport(scanData: any, summary: any): Promise<Buffer> {
+  const PdfPrinterClass = (PdfPrinter as any).default || PdfPrinter;
+  const printer = new PdfPrinterClass(fonts);
+
   const maskedFindings = scanData.findings.map(maskFindingSecrets);
 
   const docDefinition: TDocumentDefinitions = {
