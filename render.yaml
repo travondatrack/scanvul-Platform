@@ -1,0 +1,70 @@
+services:
+  - type: web
+    name: scanvul-frontend
+    env: node
+    rootDir: apps/web
+    buildCommand: npm install && npx prisma generate && npm run build
+    startCommand: npm run start
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: NEXT_PUBLIC_API_BASE_URL
+        fromService:
+          type: web
+          name: scanvul-api
+          envVarKey: RENDER_EXTERNAL_URL
+      - key: NEXTAUTH_URL
+        sync: false
+      - key: NEXTAUTH_SECRET
+        generateValue: true
+
+  - type: web
+    name: scanvul-api
+    env: docker
+    rootDir: apps/api
+    dockerfilePath: Dockerfile
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: MINIO_ENDPOINT
+        sync: false
+      - key: MINIO_ACCESS_KEY
+        sync: false
+      - key: MINIO_SECRET_KEY
+        sync: false
+      - key: MINIO_BUCKET
+        value: "scans"
+      - key: LLM_API_KEY
+        sync: false
+      - key: LLM_PROVIDER
+        value: "groq"
+      - key: LLM_MODEL
+        value: "llama-3.3-70b-versatile"
+
+  - type: worker
+    name: scanvul-worker
+    env: docker
+    rootDir: apps/api
+    dockerfilePath: Dockerfile
+    dockerCommand: celery -A app.worker.celery_app worker --loglevel=INFO --concurrency=2
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: MINIO_ENDPOINT
+        sync: false
+      - key: MINIO_ACCESS_KEY
+        sync: false
+      - key: MINIO_SECRET_KEY
+        sync: false
+      - key: MINIO_BUCKET
+        value: "scans"
+      - key: LLM_API_KEY
+        sync: false
+      - key: LLM_PROVIDER
+        value: "groq"
+      - key: LLM_MODEL
+        value: "llama-3.3-70b-versatile"

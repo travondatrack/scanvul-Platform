@@ -35,7 +35,6 @@ services:
     ports:
       - "8001:8000"
     depends_on:
-      - mysql
       - redis
       - minio
 
@@ -62,17 +61,6 @@ services:
       - api
       - redis
 
-  mysql:
-    image: mysql:8.0
-    command: --default-authentication-plugin=mysql_native_password
-    environment:
-      MYSQL_DATABASE: codeguard
-      MYSQL_ROOT_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
-    ports:
-      - "3307:3306"
-    volumes:
-      - mysqldata:/var/lib/mysql
-
   redis:
     image: redis:7-alpine
 
@@ -89,5 +77,4 @@ services:
       - minio_data:/data
 
 volumes:
-  mysqldata:
   minio_data:
