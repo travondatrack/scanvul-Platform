@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Check, XCircle, Loader2 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 
 export default function FindingActions({ findingId, initialStatus }: { findingId: string, initialStatus: string }) {
   const router = useRouter();
@@ -33,8 +35,8 @@ export default function FindingActions({ findingId, initialStatus }: { findingId
   if (status === "false_positive") {
     return (
       <div className="flex items-center space-x-2 text-sm">
-        <span className="text-slate-600 dark:text-zinc-400 font-medium px-2 py-1 bg-slate-100 dark:bg-zinc-800 rounded border border-slate-200 dark:border-transparent">Marked as False Positive</span>
-        <button onClick={() => handleUpdateStatus("open")} className="text-brand hover:opacity-80 underline text-xs">Undo</button>
+        <Badge variant="muted">Marked as False Positive</Badge>
+        <Button variant="link" size="sm" onClick={() => handleUpdateStatus("open")}>Undo</Button>
       </div>
     );
   }
@@ -42,8 +44,8 @@ export default function FindingActions({ findingId, initialStatus }: { findingId
   if (status === "confirmed") {
     return (
       <div className="flex items-center space-x-2 text-sm">
-        <span className="text-emerald-600 dark:text-emerald-400 font-medium px-2 py-1 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 rounded">Confirmed Risk</span>
-        <button onClick={() => handleUpdateStatus("open")} className="text-brand hover:opacity-80 underline text-xs">Undo</button>
+        <Badge variant="success">Confirmed Risk</Badge>
+        <Button variant="link" size="sm" onClick={() => handleUpdateStatus("open")}>Undo</Button>
       </div>
     );
   }
@@ -54,20 +56,22 @@ export default function FindingActions({ findingId, initialStatus }: { findingId
         <Loader2 className="w-5 h-5 animate-spin text-zinc-500" />
       ) : (
         <>
-          <button
+          <Button
+            variant="success"
+            size="sm"
             onClick={() => handleUpdateStatus("confirmed")}
-            className="flex items-center space-x-1 px-3 py-1.5 rounded-lg text-sm font-medium bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-500/20 border border-emerald-200 dark:border-emerald-500/20 transition-colors"
           >
             <Check className="w-4 h-4" />
             <span>Confirm</span>
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="secondary"
+            size="sm"
             onClick={() => handleUpdateStatus("false_positive")}
-            className="flex items-center space-x-1 px-3 py-1.5 rounded-lg text-sm font-medium bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400 hover:bg-slate-200 hover:text-slate-900 dark:hover:bg-zinc-700 dark:hover:text-white transition-colors"
           >
             <XCircle className="w-4 h-4" />
             <span>False Positive</span>
-          </button>
+          </Button>
         </>
       )}
     </div>

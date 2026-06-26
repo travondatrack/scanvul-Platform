@@ -5,6 +5,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -119,20 +121,20 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#05090b] text-white relative overflow-hidden font-sans">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_22%_12%,rgba(0,201,232,0.12),transparent_28%),radial-gradient(circle_at_80%_0%,rgba(0,112,143,0.16),transparent_30%)]" />
+    <div className="min-h-screen flex items-center justify-center bg-background text-foreground relative overflow-hidden font-sans">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_22%_12%,hsl(var(--brand)/0.14),transparent_28%),radial-gradient(circle_at_80%_0%,hsl(var(--brand)/0.12),transparent_30%)]" />
       <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(90deg,rgba(255,255,255,0.018)_1px,transparent_1px),linear-gradient(180deg,rgba(255,255,255,0.018)_1px,transparent_1px)] bg-[size:80px_80px] opacity-35" />
 
-      <div className="relative z-10 w-full max-w-md p-8 bg-[#0b1215]/80 backdrop-blur-md border border-white/10 rounded-2xl shadow-[0_14px_42px_rgba(0,0,0,0.16)]">
+      <div className="relative z-10 w-full max-w-md p-8 bg-card/90 text-card-foreground backdrop-blur-md border border-border rounded-xl shadow-sm">
         <div className="flex flex-col items-center space-y-6">
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-[#073144] to-[#0a839b] rounded-xl flex items-center justify-center shadow-[0_0_18px_rgba(0,196,224,0.22)]">
+            <div className="w-10 h-10 bg-brand rounded-lg flex items-center justify-center shadow-sm">
               <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
               </svg>
             </div>
             <h1 className="text-3xl font-extrabold tracking-[-0.03em] drop-shadow-[0_2px_10px_rgba(0,0,0,0.25)]">
-              ScanVul <span className="text-[#00c9e8]">AI</span>
+              ScanVul <span className="text-brand">AI</span>
             </h1>
           </div>
 
@@ -140,7 +142,7 @@ export default function RegisterPage() {
             <h2 className="text-2xl font-bold tracking-tight text-white">
               {requiresVerification ? "Verify your email" : "Create an account"}
             </h2>
-            <p className="text-sm text-[#cfe0ea]">
+            <p className="text-sm text-muted-foreground">
               {requiresVerification ? `Enter the 6-digit code sent to ${email}` : "Start securing your code today"}
             </p>
           </div>
@@ -156,13 +158,13 @@ export default function RegisterPage() {
               <div className="space-y-4">
                 <div className="space-y-1">
                   <label className="text-xs font-medium text-slate-400 ml-1">Verification Code</label>
-                  <input
+                  <Input
                     type="text"
                     inputMode="numeric"
                     value={otp}
                     onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
                     placeholder="123456"
-                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-center text-lg tracking-[0.35em] text-white focus:outline-none focus:border-[#00c9e8] focus:ring-1 focus:ring-[#00c9e8]/50 transition-all placeholder:text-slate-500"
+                    className="text-center text-lg tracking-[0.35em]"
                     required
                     minLength={6}
                     maxLength={6}
@@ -173,7 +175,7 @@ export default function RegisterPage() {
                   type="button"
                   onClick={handleResend}
                   disabled={isResending || resendCooldown > 0}
-                  className="w-full text-sm text-[#00c9e8] hover:opacity-80 font-bold disabled:opacity-50"
+                  className="w-full text-sm text-brand hover:opacity-80 font-bold disabled:opacity-50"
                 >
                   {resendCooldown > 0
                     ? `Resend code in ${resendCooldown}s`
@@ -184,36 +186,33 @@ export default function RegisterPage() {
               <>
                 <div className="space-y-1">
                   <label className="text-xs font-medium text-slate-400 ml-1">Full Name</label>
-                  <input
+                  <Input
                     type="text"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     placeholder="John Doe"
-                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-[#00c9e8] focus:ring-1 focus:ring-[#00c9e8]/50 transition-all placeholder:text-slate-500"
                     required
                   />
                 </div>
 
                 <div className="space-y-1">
                   <label className="text-xs font-medium text-slate-400 ml-1">Email</label>
-                  <input
+                  <Input
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="john@example.com"
-                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-[#00c9e8] focus:ring-1 focus:ring-[#00c9e8]/50 transition-all placeholder:text-slate-500"
                     required
                   />
                 </div>
 
                 <div className="space-y-1">
                   <label className="text-xs font-medium text-slate-400 ml-1">Password</label>
-                  <input
+                  <Input
                     type="password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••"
-                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-[#00c9e8] focus:ring-1 focus:ring-[#00c9e8]/50 transition-all placeholder:text-slate-500"
                     required
                     minLength={8}
                   />
@@ -221,10 +220,11 @@ export default function RegisterPage() {
               </>
             )}
 
-            <button
+            <Button
               type="submit"
               disabled={isLoading || isVerifying}
-              className="w-full bg-gradient-to-b from-[#21dcf8] to-[#0797b9] hover:opacity-90 text-white py-3 rounded-xl font-bold transition-all duration-200 shadow-[0_0_22px_rgba(0,207,234,0.34)] active:scale-[0.98] disabled:opacity-50 flex items-center justify-center space-x-2 mt-2"
+              variant="brandHero"
+              className="w-full"
             >
               {(isLoading || isVerifying) && <Loader2 className="w-4 h-4 animate-spin" />}
               <span>
@@ -232,12 +232,12 @@ export default function RegisterPage() {
                   ? isVerifying ? "Verifying..." : "Verify Email"
                   : isLoading ? "Creating account..." : "Sign Up"}
               </span>
-            </button>
+            </Button>
           </form>
 
           <p className="text-sm text-slate-400 pt-2">
             Already have an account?{" "}
-            <Link href="/login" className="text-[#00c9e8] hover:opacity-80 font-bold">
+            <Link href="/login" className="text-brand hover:opacity-80 font-bold">
               Log in
             </Link>
           </p>

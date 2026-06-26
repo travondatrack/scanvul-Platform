@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { Building2, ChevronDown, User, Check } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export type OrgContext = {
   type: "personal" | "org";
@@ -72,20 +73,20 @@ export function OrgSwitcher({ onChange }: Props) {
     <div className="relative">
       <button
         onClick={() => setOpen((o) => !o)}
-        className="flex items-center space-x-2 w-full px-3 py-2 rounded-lg bg-slate-100 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 hover:bg-slate-200 dark:hover:bg-zinc-700 transition-colors text-sm font-medium text-slate-700 dark:text-zinc-200"
+        className="flex items-center space-x-2 w-full px-3 py-2 rounded-lg bg-muted border border-border hover:bg-muted/80 transition-colors text-sm font-medium text-foreground"
         aria-expanded={open}
         aria-haspopup="listbox"
       >
         <span className="w-5 h-5 flex-shrink-0 flex items-center justify-center">
           {current.type === "personal" ? (
-            <User className="w-4 h-4 text-slate-500 dark:text-zinc-400" />
+            <User className="w-4 h-4 text-muted-foreground" />
           ) : (
             <Building2 className="w-4 h-4 text-brand" />
           )}
         </span>
         <span className="flex-1 truncate text-left">{current.name}</span>
         <ChevronDown
-          className={`w-4 h-4 text-slate-400 dark:text-zinc-500 transition-transform ${open ? "rotate-180" : ""}`}
+          className={`w-4 h-4 text-muted-foreground transition-transform ${open ? "rotate-180" : ""}`}
         />
       </button>
 
@@ -96,11 +97,11 @@ export function OrgSwitcher({ onChange }: Props) {
 
           <div
             role="listbox"
-            className="absolute left-0 top-full mt-1 z-20 w-64 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-xl shadow-xl overflow-hidden"
+            className="absolute left-0 top-full mt-1 z-20 w-64 bg-popover text-popover-foreground border border-border rounded-xl shadow-xl overflow-hidden"
           >
             {/* Personal */}
             <div className="px-3 pt-3 pb-1">
-              <p className="text-xs font-semibold text-slate-400 dark:text-zinc-500 uppercase tracking-wider">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                 Personal
               </p>
             </div>
@@ -108,9 +109,9 @@ export function OrgSwitcher({ onChange }: Props) {
               role="option"
               aria-selected={current.type === "personal"}
               onClick={() => select(personalCtx)}
-              className="flex items-center space-x-3 w-full px-3 py-2 hover:bg-slate-50 dark:hover:bg-zinc-800 transition-colors text-sm text-slate-700 dark:text-zinc-200"
+              className="flex items-center space-x-3 w-full px-3 py-2 hover:bg-muted transition-colors text-sm text-foreground"
             >
-              <User className="w-4 h-4 text-slate-400 flex-shrink-0" />
+              <User className="w-4 h-4 text-muted-foreground flex-shrink-0" />
               <span className="flex-1 text-left">Personal</span>
               {current.type === "personal" && (
                 <Check className="w-4 h-4 text-brand flex-shrink-0" />
@@ -120,8 +121,8 @@ export function OrgSwitcher({ onChange }: Props) {
             {/* Organizations */}
             {!loading && orgs.length > 0 && (
               <>
-                <div className="px-3 pt-3 pb-1 border-t border-slate-100 dark:border-zinc-800 mt-1">
-                  <p className="text-xs font-semibold text-slate-400 dark:text-zinc-500 uppercase tracking-wider">
+                <div className="px-3 pt-3 pb-1 border-t border-border mt-1">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                     Organizations
                   </p>
                 </div>
@@ -136,11 +137,11 @@ export function OrgSwitcher({ onChange }: Props) {
                       onClick={() =>
                         select({ type: "org", id: org.id, name: org.name, slug: org.slug, role: myRole })
                       }
-                      className="flex items-center space-x-3 w-full px-3 py-2 hover:bg-slate-50 dark:hover:bg-zinc-800 transition-colors text-sm text-slate-700 dark:text-zinc-200"
+                      className="flex items-center space-x-3 w-full px-3 py-2 hover:bg-muted transition-colors text-sm text-foreground"
                     >
                       <Building2 className="w-4 h-4 text-brand flex-shrink-0" />
                       <span className="flex-1 text-left truncate">{org.name}</span>
-                      <span className="text-xs text-slate-400 dark:text-zinc-500 capitalize mr-1">
+                      <span className="text-xs text-muted-foreground capitalize mr-1">
                         {myRole}
                       </span>
                       {isActive && <Check className="w-4 h-4 text-brand flex-shrink-0" />}
@@ -151,13 +152,16 @@ export function OrgSwitcher({ onChange }: Props) {
             )}
 
             {loading && (
-              <div className="px-4 py-3 text-xs text-slate-400 dark:text-zinc-500">Loading...</div>
+              <div className="space-y-2 px-3 py-3">
+                <Skeleton className="h-8 w-full" />
+                <Skeleton className="h-8 w-4/5" />
+              </div>
             )}
 
-            <div className="border-t border-slate-100 dark:border-zinc-800 p-2">
+            <div className="border-t border-border p-2">
               <a
                 href="/team"
-                className="flex items-center space-x-2 px-2 py-1.5 rounded-lg text-xs text-slate-500 dark:text-zinc-400 hover:text-brand hover:bg-brand/5 transition-colors"
+                className="flex items-center space-x-2 px-2 py-1.5 rounded-lg text-xs text-muted-foreground hover:text-brand hover:bg-brand/5 transition-colors"
               >
                 <Building2 className="w-3.5 h-3.5" />
                 <span>Manage Organizations</span>

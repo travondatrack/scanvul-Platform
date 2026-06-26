@@ -3,6 +3,10 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Github, Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
 
 export default function NewProjectPage() {
   const router = useRouter();
@@ -47,53 +51,51 @@ export default function NewProjectPage() {
 
   return (
     <div className="max-w-2xl mx-auto mt-12">
-      <div className="bg-white dark:bg-zinc-900/50 border border-slate-200 dark:border-zinc-800/50 dark:backdrop-blur-xl rounded-2xl p-8 shadow-sm dark:shadow-xl">
-        <h1 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">Create New Project</h1>
-        <p className="text-slate-500 dark:text-zinc-400 mb-8">Link a GitHub repository to start scanning for vulnerabilities and secrets.</p>
+      <Card className="p-8">
+        <h1 className="text-2xl font-bold text-foreground mb-2">Create New Project</h1>
+        <p className="text-muted-foreground mb-8">Link a GitHub repository to start scanning for vulnerabilities and secrets.</p>
 
         <form onSubmit={handleSubmit} className="space-y-6">
           {error && (
-            <div className="bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 text-red-600 dark:text-red-400 p-3 rounded-xl text-sm">
+            <div className="rounded-lg border border-destructive/20 bg-destructive/10 p-3 text-sm text-destructive">
               {error}
             </div>
           )}
 
           <div className="space-y-2">
-            <label className="text-sm font-medium text-slate-700 dark:text-zinc-300">Project Name</label>
-            <input
+            <label className="text-sm font-medium text-foreground">Project Name</label>
+            <Input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g. My Secure App"
-              className="w-full bg-white dark:bg-zinc-950/50 border border-slate-300 dark:border-white/10 rounded-xl px-4 py-3 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-brand/60 focus:ring-1 focus:ring-brand/50 transition-all placeholder:text-slate-400 dark:placeholder:text-zinc-600 shadow-sm"
               required
             />
           </div>
 
           <div className="space-y-2">
-            <label className="text-sm font-medium text-slate-700 dark:text-zinc-300">GitHub Repository URL</label>
+            <label className="text-sm font-medium text-foreground">GitHub Repository URL</label>
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                <Github className="h-5 w-5 text-slate-400 dark:text-zinc-500" />
+                <Github className="h-5 w-5 text-muted-foreground" />
               </div>
-              <input
+              <Input
                 type="url"
                 value={githubUrl}
                 onChange={(e) => setGithubUrl(e.target.value)}
                 placeholder="https://github.com/username/repo"
-                className="w-full bg-white dark:bg-zinc-950/50 border border-slate-300 dark:border-white/10 rounded-xl pl-12 pr-4 py-3 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-brand/60 focus:ring-1 focus:ring-brand/50 transition-all placeholder:text-slate-400 dark:placeholder:text-zinc-600 shadow-sm"
+                className="pl-12"
                 required
               />
             </div>
-            <p className="text-xs text-slate-500 dark:text-zinc-500">Currently only public repositories are supported without PAT.</p>
+            <p className="text-xs text-muted-foreground">Currently only public repositories are supported without PAT.</p>
           </div>
 
           <div className="space-y-2">
-            <label className="text-sm font-medium text-slate-700 dark:text-zinc-300">Workspace</label>
-            <select
+            <label className="text-sm font-medium text-foreground">Workspace</label>
+            <Select
               value={organizationId}
               onChange={(e) => setOrganizationId(e.target.value)}
-              className="w-full bg-white dark:bg-zinc-950/50 border border-slate-300 dark:border-white/10 rounded-xl px-4 py-3 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-brand/60 focus:ring-1 focus:ring-brand/50 transition-all shadow-sm"
             >
               <option value="">Personal</option>
               {organizations
@@ -103,28 +105,27 @@ export default function NewProjectPage() {
                     {org.name}
                   </option>
                 ))}
-            </select>
+            </Select>
           </div>
 
           <div className="pt-4 flex items-center justify-end space-x-4">
-            <button
+            <Button
               type="button"
               onClick={() => router.back()}
-              className="px-4 py-2 text-sm font-medium text-slate-500 hover:text-slate-900 dark:text-zinc-400 dark:hover:text-white transition-colors"
+              variant="ghost"
             >
               Cancel
-            </button>
-            <button
+            </Button>
+            <Button
               type="submit"
               disabled={isLoading}
-              className="bg-brand hover:opacity-90 text-white px-6 py-2.5 rounded-xl text-sm font-medium transition-all shadow-sm dark:shadow-lg dark:shadow-brand/20 active:scale-95 disabled:opacity-50 flex items-center space-x-2"
             >
               {isLoading && <Loader2 className="w-4 h-4 animate-spin" />}
               <span>{isLoading ? "Creating..." : "Create Project"}</span>
-            </button>
+            </Button>
           </div>
         </form>
-      </div>
+      </Card>
     </div>
   );
 }

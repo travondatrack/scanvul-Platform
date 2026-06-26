@@ -79,27 +79,27 @@ export default async function ScanResultPage({ params }: { params: Promise<{ id:
   const isRunning = scan.status === "queued" || scan.status === "running";
 
   return (
-    <div className="min-h-screen bg-[#05090b] text-white font-sans transition-colors duration-300 relative">
+    <div className="min-h-screen bg-background text-foreground font-sans transition-colors duration-300 relative">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_-20%,rgba(0,201,232,0.1),transparent_40%)]" />
       <div className="max-w-7xl mx-auto p-6 space-y-6 relative z-10">
 
         {/* Header */}
-        <div className="flex items-start justify-between border-b border-white/10 pb-6">
+        <div className="flex items-start justify-between border-b border-border pb-6">
           <div>
             <div className="flex items-center gap-3 mb-2">
-              <Link href="/projects" className="text-slate-400 hover:text-white text-sm transition-colors">
+              <Link href="/projects" className="text-slate-400 hover:text-foreground text-sm transition-colors">
                 ← Projects
               </Link>
             </div>
-            <h1 className="text-3xl font-extrabold tracking-tight text-white drop-shadow-[0_2px_10px_rgba(0,0,0,0.25)]">Scan Report</h1>
-            <p className="text-[#cfe0ea]/70 font-mono text-xs mt-1">{scan.id}</p>
+            <h1 className="text-3xl font-extrabold tracking-tight text-foreground drop-shadow-[0_2px_10px_rgba(0,0,0,0.25)]">Scan Report</h1>
+            <p className="text-muted-foreground/70 font-mono text-xs mt-1">{scan.id}</p>
           </div>
           <div className="flex items-center gap-3">
             {/* Status badge */}
             <div className={`px-4 py-2 rounded-xl font-bold flex items-center gap-2 text-sm shadow-[0_0_15px_rgba(0,0,0,0.2)] ${
               scan.status === "completed" ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 shadow-[0_0_15px_rgba(16,185,129,0.15)]" :
               scan.status === "failed" ? "bg-red-500/10 text-red-400 border border-red-500/20 shadow-[0_0_15px_rgba(239,68,68,0.15)]" :
-              "bg-[#00c9e8]/10 text-[#00c9e8] border border-[#00c9e8]/20 shadow-[0_0_15px_rgba(0,201,232,0.15)] animate-pulse"
+              "bg-[hsl(var(--brand))]/10 text-brand border border-[hsl(var(--brand))]/20 shadow-[0_0_15px_rgba(0,201,232,0.15)] animate-pulse"
             }`}>
               {scan.status === "completed" && <CheckCircle className="w-4 h-4" />}
               {scan.status === "failed" && <AlertTriangle className="w-4 h-4" />}
@@ -108,7 +108,7 @@ export default async function ScanResultPage({ params }: { params: Promise<{ id:
             </div>
             {isRunning && (
               <a href={`/scan/${scan.id}`}
-                className="bg-white/5 border border-white/10 hover:bg-white/10 text-white px-4 py-2 rounded-xl text-sm font-bold transition-all shadow-[0_0_15px_rgba(0,0,0,0.1)]">
+                className="bg-muted/40 border border-border hover:bg-muted text-foreground px-4 py-2 rounded-xl text-sm font-bold transition-all shadow-[0_0_15px_rgba(0,0,0,0.1)]">
                 Refresh
               </a>
             )}
@@ -117,15 +117,15 @@ export default async function ScanResultPage({ params }: { params: Promise<{ id:
 
         {/* Overview grid */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="bg-[#0b1215]/80 border border-white/10 rounded-2xl p-5 shadow-[0_14px_42px_rgba(0,0,0,0.16)] backdrop-blur-xl">
+          <div className="bg-card text-card-foreground border border-border rounded-xl p-5 shadow-sm">
             <p className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">Target</p>
-            <p className="font-bold truncate text-sm text-white" title={scan.sourceValue}>
+            <p className="font-bold truncate text-sm text-foreground" title={scan.sourceValue}>
               {(scan.sourceType === "repo_url" || scan.sourceType === "github")
                 ? scan.sourceValue
                 : "Code Snippet"}
             </p>
           </div>
-          <div className="bg-[#0b1215]/80 border border-white/10 rounded-2xl p-5 shadow-[0_14px_42px_rgba(0,0,0,0.16)] backdrop-blur-xl">
+          <div className="bg-card text-card-foreground border border-border rounded-xl p-5 shadow-sm">
             <p className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">Risk Level</p>
             <div className={`text-2xl font-extrabold ${
               scan.riskLevel === "Critical" ? "text-red-500 drop-shadow-[0_0_10px_rgba(239,68,68,0.4)]" :
@@ -135,15 +135,15 @@ export default async function ScanResultPage({ params }: { params: Promise<{ id:
             }`}>
               {scan.riskLevel}
             </div>
-            <p className="text-[#cfe0ea]/70 text-xs mt-1 font-medium">{scan.riskPercent?.toFixed(1)}% risk score</p>
+            <p className="text-muted-foreground/70 text-xs mt-1 font-medium">{scan.riskPercent?.toFixed(1)}% risk score</p>
           </div>
-          <div className="bg-[#0b1215]/80 border border-white/10 rounded-2xl p-5 shadow-[0_14px_42px_rgba(0,0,0,0.16)] backdrop-blur-xl">
+          <div className="bg-card text-card-foreground border border-border rounded-xl p-5 shadow-sm">
             <p className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">Total Findings</p>
-            <p className="text-3xl font-extrabold text-white">{scan.findings.length}</p>
+            <p className="text-3xl font-extrabold text-foreground">{scan.findings.length}</p>
           </div>
-          <div className="bg-[#0b1215]/80 border border-white/10 rounded-2xl p-5 shadow-[0_14px_42px_rgba(0,0,0,0.16)] backdrop-blur-xl">
+          <div className="bg-card text-card-foreground border border-border rounded-xl p-5 shadow-sm">
             <p className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">Scanned At</p>
-            <p className="text-sm font-bold text-white">
+            <p className="text-sm font-bold text-foreground">
               {new Date(scan.createdAt).toLocaleString()}
             </p>
           </div>
@@ -152,10 +152,10 @@ export default async function ScanResultPage({ params }: { params: Promise<{ id:
         {/* Severity breakdown */}
         <div className="grid grid-cols-4 gap-4">
           {[
-            { label: "Critical", count: critical, color: "bg-[#0b1215]/80 border-white/10 backdrop-blur-xl", num: "text-red-500 drop-shadow-[0_0_10px_rgba(239,68,68,0.4)]", iconCol: "text-red-500 bg-red-500/10 border-red-500/20" },
-            { label: "High", count: high, color: "bg-[#0b1215]/80 border-white/10 backdrop-blur-xl", num: "text-orange-500 drop-shadow-[0_0_10px_rgba(249,115,22,0.4)]", iconCol: "text-orange-500 bg-orange-500/10 border-orange-500/20" },
-            { label: "Medium", count: medium, color: "bg-[#0b1215]/80 border-white/10 backdrop-blur-xl", num: "text-amber-500 drop-shadow-[0_0_10px_rgba(245,158,11,0.4)]", iconCol: "text-amber-500 bg-amber-500/10 border-amber-500/20" },
-            { label: "Low", count: low, color: "bg-[#0b1215]/80 border-white/10 backdrop-blur-xl", num: "text-emerald-500 drop-shadow-[0_0_10px_rgba(16,185,129,0.4)]", iconCol: "text-emerald-500 bg-emerald-500/10 border-emerald-500/20" },
+            { label: "Critical", count: critical, color: "bg-card border-border", num: "text-red-500 drop-shadow-[0_0_10px_rgba(239,68,68,0.4)]", iconCol: "text-red-500 bg-red-500/10 border-red-500/20" },
+            { label: "High", count: high, color: "bg-card border-border", num: "text-orange-500 drop-shadow-[0_0_10px_rgba(249,115,22,0.4)]", iconCol: "text-orange-500 bg-orange-500/10 border-orange-500/20" },
+            { label: "Medium", count: medium, color: "bg-card border-border", num: "text-amber-500 drop-shadow-[0_0_10px_rgba(245,158,11,0.4)]", iconCol: "text-amber-500 bg-amber-500/10 border-amber-500/20" },
+            { label: "Low", count: low, color: "bg-card border-border", num: "text-emerald-500 drop-shadow-[0_0_10px_rgba(16,185,129,0.4)]", iconCol: "text-emerald-500 bg-emerald-500/10 border-emerald-500/20" },
           ].map(({ label, count, color, num, iconCol }) => (
             <div key={label} className={`border rounded-2xl p-5 flex items-center justify-between shadow-[0_14px_42px_rgba(0,0,0,0.16)] ${color}`}>
               <div className="flex items-center gap-3">
@@ -177,8 +177,8 @@ export default async function ScanResultPage({ params }: { params: Promise<{ id:
           
           <div className="lg:col-span-3">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-bold flex items-center gap-2 text-white">
-                <Search className="w-5 h-5 text-[#00c9e8]" />
+              <h2 className="text-xl font-bold flex items-center gap-2 text-foreground">
+                <Search className="w-5 h-5 text-brand" />
                 <span>Vulnerability Details</span>
                 {scan.findings.length > 0 && (
                   <span className="text-sm font-medium text-slate-400">({scan.findings.length} total)</span>
@@ -194,26 +194,26 @@ export default async function ScanResultPage({ params }: { params: Promise<{ id:
             </div>
 
             {scan.findings.length === 0 ? (
-              <div className="bg-[#0b1215]/80 shadow-[0_14px_42px_rgba(0,0,0,0.16)] backdrop-blur-xl border border-white/10 rounded-2xl p-12 text-center">
+              <div className="bg-card text-card-foreground shadow-sm border border-border rounded-xl p-12 text-center">
                 {scan.status === "completed" ? (
                   <>
                     <ShieldCheck className="w-16 h-16 text-emerald-500 mx-auto mb-4 drop-shadow-[0_0_15px_rgba(16,185,129,0.5)]" />
-                    <h3 className="text-xl font-bold text-white">No Vulnerabilities Found!</h3>
-                    <p className="text-[#cfe0ea] mt-2">Your code looks clean. Great job!</p>
+                    <h3 className="text-xl font-bold text-foreground">No Vulnerabilities Found!</h3>
+                    <p className="text-muted-foreground mt-2">Your code looks clean. Great job!</p>
                   </>
                 ) : scan.status === "failed" ? (
                   <>
                     <AlertTriangle className="w-16 h-16 text-red-500 mx-auto mb-4 drop-shadow-[0_0_15px_rgba(239,68,68,0.5)]" />
-                    <h3 className="text-xl font-bold text-white">Scan Failed</h3>
-                    <p className="text-[#cfe0ea] mt-2">The scan encountered an error. Please try again.</p>
+                    <h3 className="text-xl font-bold text-foreground">Scan Failed</h3>
+                    <p className="text-muted-foreground mt-2">The scan encountered an error. Please try again.</p>
                   </>
                 ) : (
                   <>
-                    <Activity className="w-16 h-16 text-[#00c9e8] mx-auto mb-4 animate-pulse drop-shadow-[0_0_15px_rgba(0,201,232,0.5)]" />
-                    <h3 className="text-xl font-bold text-white">Scan In Progress...</h3>
-                    <p className="text-[#cfe0ea] mt-2">Results will appear here when the scan completes.</p>
+                    <Activity className="w-16 h-16 text-brand mx-auto mb-4 animate-pulse drop-shadow-[0_0_15px_rgba(0,201,232,0.5)]" />
+                    <h3 className="text-xl font-bold text-foreground">Scan In Progress...</h3>
+                    <p className="text-muted-foreground mt-2">Results will appear here when the scan completes.</p>
                     <a href={`/scan/${scan.id}`}
-                      className="mt-6 inline-block bg-gradient-to-b from-[#21dcf8] to-[#0797b9] hover:opacity-90 text-white px-6 py-2.5 rounded-xl text-sm font-bold shadow-[0_0_15px_rgba(0,207,234,0.3)] transition-all">
+                      className="mt-6 inline-block bg-gradient-to-b from-[#21dcf8] to-[#0797b9] hover:opacity-90 text-foreground px-6 py-2.5 rounded-xl text-sm font-bold shadow-[0_0_15px_rgba(0,207,234,0.3)] transition-all">
                       Refresh Page
                     </a>
                   </>

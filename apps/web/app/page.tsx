@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { ArrowRight, Code2, ScanSearch, Shield, ShieldCheck } from "lucide-react";
+import { buttonVariants } from "@/components/ui/button";
 
 const stats = [
   { value: "3", accent: "Min", label: "Setup" },
@@ -64,7 +65,7 @@ export default function LandingPage() {
               </Link>
               <Link
                 href="#get-started"
-                className="rounded-[24px] bg-gradient-to-b from-[#21dcf8] to-[#0797b9] px-6 py-3 text-[18px] font-bold leading-none text-white shadow-[0_0_22px_rgba(0,207,234,0.34),inset_0_1px_0_rgba(255,255,255,0.32)] transition-transform active:scale-95"
+                className={buttonVariants({ variant: "brandHero", size: "lg" })}
               >
                 Get Started
               </Link>
@@ -89,7 +90,7 @@ export default function LandingPage() {
 
             <Link
               href="#get-started"
-              className="mt-8 inline-flex h-14 min-w-[210px] items-center justify-center gap-3 rounded-[28px] bg-gradient-to-b from-[#20dbf8] to-[#0694b7] px-7 text-[19px] font-bold leading-none text-white shadow-[0_0_28px_rgba(0,205,234,0.42),0_16px_30px_rgba(0,198,230,0.13),inset_0_1px_0_rgba(255,255,255,0.25)] transition-transform active:scale-95"
+              className={buttonVariants({ variant: "brandHero", size: "lg", className: "mt-8 h-14 min-w-[210px] gap-3 text-[19px]" })}
             >
               <span>Start Free Trial</span>
               <ArrowRight className="h-6 w-6" strokeWidth={2.4} />

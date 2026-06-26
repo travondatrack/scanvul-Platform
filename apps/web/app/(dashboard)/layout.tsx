@@ -7,6 +7,7 @@ import { useState } from "react";
 import { LayoutDashboard, FolderKanban, FileText, Settings, ShieldAlert, LogOut, Loader2, Users } from "lucide-react";
 import { ThemeToggle } from "../../components/ThemeToggle";
 import { OrgSwitcher } from "../../components/OrgSwitcher";
+import { Button } from "@/components/ui/button";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { data: session } = useSession();
@@ -23,14 +24,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   ];
 
   return (
-    <div className="min-h-screen bg-slate-100/50 dark:bg-zinc-950 text-slate-800 dark:text-white flex transition-colors duration-300">
+    <div className="min-h-screen bg-background text-foreground flex transition-colors duration-300">
       {/* Sidebar */}
-      <aside className="w-64 border-r border-slate-200/80 dark:border-zinc-800/50 bg-[#fafafa] dark:bg-zinc-900/50 hidden md:flex flex-col transition-colors duration-300">
+      <aside className="w-64 border-r border-border bg-card/80 hidden md:flex flex-col transition-colors duration-300">
         <div className="p-6 flex items-center space-x-3">
           <div className="w-8 h-8 bg-brand rounded-lg flex items-center justify-center shadow-sm">
             <ShieldAlert className="w-4 h-4 text-white" />
           </div>
-          <span className="text-xl font-bold text-slate-800 dark:text-white tracking-tight">
+          <span className="text-xl font-bold text-foreground tracking-tight">
             ScanVul
           </span>
         </div>
@@ -49,40 +50,41 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 prefetch={true}
                 className={`flex items-center space-x-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
                   isActive
-                    ? "bg-slate-200/50 dark:bg-zinc-800 text-slate-800 dark:text-white"
-                    : "text-slate-500 dark:text-zinc-400 hover:text-slate-800 dark:hover:text-white hover:bg-slate-100/50 dark:hover:bg-zinc-800/50"
+                    ? "bg-muted text-foreground"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted/70"
                 }`}
               >
-                <item.icon className={`w-5 h-5 ${isActive ? "text-slate-800 dark:text-white" : "text-slate-400 dark:text-zinc-500"}`} />
+                <item.icon className={`w-5 h-5 ${isActive ? "text-foreground" : "text-muted-foreground"}`} />
                 <span>{item.name}</span>
               </Link>
             );
           })}
         </nav>
 
-        <div className="p-4 mt-auto border-t border-slate-200/80 dark:border-zinc-800/50">
+        <div className="p-4 mt-auto border-t border-border">
           <div className="flex items-center space-x-3 mb-4 px-2">
-            <div className="w-10 h-10 rounded-full bg-slate-100/80 dark:bg-zinc-800 border border-slate-200/80 dark:border-zinc-700 overflow-hidden flex-shrink-0">
+            <div className="w-10 h-10 rounded-full bg-muted border border-border overflow-hidden flex-shrink-0">
               {session?.user?.image ? (
                 <img src={session.user.image} alt="Avatar" className="w-full h-full object-cover" />
               ) : (
-                <div className="w-full h-full flex items-center justify-center text-slate-500 dark:text-zinc-400 font-bold">
+                <div className="w-full h-full flex items-center justify-center text-muted-foreground font-bold">
                   {session?.user?.name?.charAt(0) || "U"}
                 </div>
               )}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-slate-800 dark:text-white truncate">{session?.user?.name}</p>
-              <p className="text-xs text-slate-500 dark:text-zinc-500 truncate">{session?.user?.email}</p>
+              <p className="text-sm font-medium text-foreground truncate">{session?.user?.name}</p>
+              <p className="text-xs text-muted-foreground truncate">{session?.user?.email}</p>
             </div>
           </div>
-          <button
+          <Button
+            variant="ghost"
             onClick={() => {
               setIsSigningOut(true);
               signOut({ callbackUrl: "/" });
             }}
             disabled={isSigningOut}
-            className="w-full flex items-center justify-center space-x-2 px-3 py-2 text-sm text-slate-500 dark:text-zinc-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-colors border border-transparent disabled:opacity-50"
+            className="w-full hover:text-destructive"
           >
             {isSigningOut ? (
               <Loader2 className="w-4 h-4 animate-spin" />
@@ -90,7 +92,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               <LogOut className="w-4 h-4" />
             )}
             <span>{isSigningOut ? "Signing out..." : "Sign out"}</span>
-          </button>
+          </Button>
         </div>
       </aside>
 

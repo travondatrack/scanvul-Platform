@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Download, Share2, Trash2, Check, Copy } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 interface ScanActionsProps {
   scanId: string;
@@ -51,31 +52,31 @@ export function ScanActions({ scanId, initialBadgeUrl }: ScanActionsProps) {
 
   return (
     <div className="flex items-center gap-3">
-      <div className="flex bg-[#0b1215]/80 border border-white/10 rounded-xl overflow-hidden shadow-[0_0_15px_rgba(0,0,0,0.1)]">
-        <button onClick={() => handleExport('json')} className="px-3 py-2 text-sm font-bold text-white hover:bg-white/10 transition-colors border-r border-white/10 flex items-center gap-2">
+      <div className="flex overflow-hidden rounded-lg border border-border bg-card shadow-sm">
+        <button onClick={() => handleExport('json')} className="px-3 py-2 text-sm font-bold text-foreground hover:bg-muted transition-colors border-r border-border flex items-center gap-2">
           <Download className="w-4 h-4" /> JSON
         </button>
-        <button onClick={() => handleExport('sarif')} className="px-3 py-2 text-sm font-bold text-white hover:bg-white/10 transition-colors border-r border-white/10">
+        <button onClick={() => handleExport('sarif')} className="px-3 py-2 text-sm font-bold text-foreground hover:bg-muted transition-colors border-r border-border">
           SARIF
         </button>
-        <button onClick={() => handleExport('pdf')} className="px-3 py-2 text-sm font-bold text-white hover:bg-white/10 transition-colors">
+        <button onClick={() => handleExport('pdf')} className="px-3 py-2 text-sm font-bold text-foreground hover:bg-muted transition-colors">
           PDF
         </button>
       </div>
 
       {!badgeUrl ? (
-        <button onClick={generateBadge} disabled={isGenerating} className="bg-gradient-to-br from-indigo-500 to-purple-600 text-white px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 shadow-[0_0_15px_rgba(99,102,241,0.3)] hover:scale-105 transition-transform disabled:opacity-50">
+        <Button onClick={generateBadge} disabled={isGenerating} variant="secondary">
           <Share2 className="w-4 h-4" /> {isGenerating ? "Generating..." : "Publish Badge"}
-        </button>
+        </Button>
       ) : (
-        <div className="flex items-center bg-[#0b1215]/80 border border-purple-500/30 rounded-xl overflow-hidden shadow-[0_0_15px_rgba(168,85,247,0.15)]">
-          <div className="px-3 py-2 text-xs text-slate-300 border-r border-white/10 max-w-[150px] truncate">
+        <div className="flex items-center bg-card border border-border rounded-lg overflow-hidden shadow-sm">
+          <div className="px-3 py-2 text-xs text-muted-foreground border-r border-border max-w-[150px] truncate">
             {badgeUrl}
           </div>
-          <button onClick={copyToClipboard} className="px-3 py-2 hover:bg-white/10 transition-colors text-slate-300 border-r border-white/10">
+          <button onClick={copyToClipboard} className="px-3 py-2 hover:bg-muted transition-colors text-muted-foreground border-r border-border">
             {copied ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
           </button>
-          <button onClick={revokeBadge} className="px-3 py-2 hover:bg-red-500/20 hover:text-red-400 transition-colors text-slate-300" title="Revoke Badge">
+          <button onClick={revokeBadge} className="px-3 py-2 hover:bg-destructive/10 hover:text-destructive transition-colors text-muted-foreground" title="Revoke Badge">
             <Trash2 className="w-4 h-4" />
           </button>
         </div>

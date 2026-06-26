@@ -7,6 +7,9 @@ import { cn } from "@/lib/utils";
 import { FindingTimeline } from "./finding-timeline";
 import { SeverityBadge } from "./severity-badge";
 import { CodeSnippet } from "./code-snippet";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
 
 type FindingItem = {
   id: string; // Prisma uses UUIDs for Finding ID, not numbers. Wait, I should make it string.
@@ -124,7 +127,7 @@ function ReferenceLinks({ references }: { references: string }) {
           href={link}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center gap-1 text-xs text-[#00c9e8] hover:underline"
+          className="inline-flex items-center gap-1 text-xs text-brand hover:underline"
         >
           <ExternalLink className="h-3 w-3" />
           {link.replace(/^https?:\/\//, "").slice(0, 60)}
@@ -237,30 +240,28 @@ export function FindingsPanel({ findings }: { findings: FindingItem[] }) {
       <div className="mb-4 grid gap-2 lg:grid-cols-[1fr_140px_140px_160px_140px]">
         <label className="relative block">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
-          <input
+          <Input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search findings…"
-            className="h-10 w-full rounded-lg border border-white/10 bg-[#05090b] pl-9 pr-3 text-sm text-white outline-none transition focus:border-[#00c9e8] focus:ring-1 focus:ring-[#00c9e8]/50 placeholder:text-slate-500"
+            className="pl-9"
           />
         </label>
 
-        <select
+        <Select
           value={severity}
           onChange={(e) => setSeverity(e.target.value)}
-          className="h-10 rounded-lg border border-white/10 bg-[#05090b] text-white px-2 text-sm focus:outline-none focus:border-[#00c9e8] focus:ring-1 focus:ring-[#00c9e8]/50"
         >
           <option value="All">All severity</option>
           <option value="Critical">Critical</option>
           <option value="High">High</option>
           <option value="Medium">Medium</option>
           <option value="Low">Low</option>
-        </select>
+        </Select>
 
-        <select
+        <Select
           value={language}
           onChange={(e) => setLanguage(e.target.value)}
-          className="h-10 rounded-lg border border-white/10 bg-[#05090b] text-white px-2 text-sm focus:outline-none focus:border-[#00c9e8] focus:ring-1 focus:ring-[#00c9e8]/50"
         >
           <option value="All">All language</option>
           <option value="python">Python</option>
@@ -269,12 +270,11 @@ export function FindingsPanel({ findings }: { findings: FindingItem[] }) {
           <option value="java">Java</option>
           <option value="dotnet">.NET</option>
           <option value="other">Other</option>
-        </select>
+        </Select>
 
-        <select
+        <Select
           value={verStatus}
           onChange={(e) => setVerStatus(e.target.value)}
-          className="h-10 rounded-lg border border-white/10 bg-[#05090b] text-white px-2 text-sm focus:outline-none focus:border-[#00c9e8] focus:ring-1 focus:ring-[#00c9e8]/50"
         >
           <option value="All">All status</option>
           <option value="verified">Verified</option>
@@ -283,50 +283,49 @@ export function FindingsPanel({ findings }: { findings: FindingItem[] }) {
           <option value="false_positive_likely">FP Likely</option>
           <option value="skipped">Skipped</option>
           <option value="failed">Verify Failed</option>
-        </select>
+        </Select>
 
-        <select
+        <Select
           value={sortBy}
           onChange={(e) => setSortBy(e.target.value)}
-          className="h-10 rounded-lg border border-white/10 bg-[#05090b] text-white px-2 text-sm focus:outline-none focus:border-[#00c9e8] focus:ring-1 focus:ring-[#00c9e8]/50"
         >
           <option value="risk">Sort by risk</option>
           <option value="confidence">Sort by confidence</option>
           <option value="file">Sort by file</option>
-        </select>
+        </Select>
       </div>
 
-      <div className="mb-3 flex items-center justify-between text-sm text-[#cfe0ea]">
+      <div className="mb-3 flex items-center justify-between text-sm text-muted-foreground">
         <div className="flex items-center gap-2">
           <input 
             type="checkbox" 
             checked={filtered.length > 0 && selectedIds.size === filtered.length}
             onChange={toggleSelectAll}
-            className="rounded border-white/10 bg-[#05090b] accent-[#00c9e8]"
+            className="rounded border-border bg-background accent-brand"
           />
           <span>Showing {filtered.length} of {findings.length}</span>
         </div>
         {selectedIds.size > 0 && (
           <div className="flex items-center gap-2">
-            <span className="font-bold text-white">{selectedIds.size} selected</span>
-            <select
+            <span className="font-bold text-foreground">{selectedIds.size} selected</span>
+            <Select
               onChange={(e) => {
                 if (e.target.value) handleBulkUpdate(e.target.value);
                 e.target.value = "";
               }}
-              className="h-8 rounded border border-white/10 bg-[#05090b] text-white px-2 outline-none focus:border-[#00c9e8]"
+              className="h-8"
             >
               <option value="">Bulk actions...</option>
               <option value="false_positive">Mark as FP</option>
               <option value="accepted_risk">Mark as Accepted Risk</option>
               <option value="ignored">Mark as Ignored</option>
-            </select>
+            </Select>
           </div>
         )}
       </div>
 
       {filtered.length === 0 ? (
-        <div className="rounded-2xl border border-white/10 bg-[#0b1215]/80 p-5 text-sm text-[#cfe0ea] text-center">
+        <div className="rounded-xl border border-border bg-card p-5 text-sm text-muted-foreground text-center">
           No findings match the current filters.
         </div>
       ) : (
@@ -336,22 +335,22 @@ export function FindingsPanel({ findings }: { findings: FindingItem[] }) {
             const tab = activeTab[item.id] ?? "evidence";
             const lineRange =
               item.lineStart && item.lineEnd && item.lineEnd !== item.lineStart
-                ? `L${item.lineStart}–${item.lineEnd}`
+                ? `L${item.lineStart}-${item.lineEnd}`
                 : `L${item.lineStart || item.lineNumber}`;
 
             return (
               <article
                 key={item.id}
-                className="animate-fade-up overflow-hidden rounded-2xl border border-white/10 bg-[#0b1215]/80 shadow-[0_14px_42px_rgba(0,0,0,0.16)] backdrop-blur-xl transition-all"
+                className="animate-fade-up overflow-hidden rounded-xl border border-border bg-card text-card-foreground shadow-sm transition-all"
                 style={{ animationDelay: `${Math.min(index * 35, 180)}ms` }}
               >
-                <div className="flex w-full items-start justify-between gap-3 p-5 text-left transition hover:bg-white/5 cursor-pointer" onClick={() => setExpanded(isOpen ? null : item.id)}>
+                <div className="flex w-full items-start justify-between gap-3 p-5 text-left transition hover:bg-muted/40 cursor-pointer" onClick={() => setExpanded(isOpen ? null : item.id)}>
                   <div className="pt-1" onClick={e => e.stopPropagation()}>
                     <input 
                       type="checkbox" 
                       checked={selectedIds.has(item.id)}
                       onChange={(e) => toggleSelect(item.id)}
-                      className="rounded border-white/10 bg-[#05090b] accent-[#00c9e8]"
+                      className="rounded border-border bg-background accent-brand"
                     />
                   </div>
                   <div className="min-w-0 flex-1">
@@ -373,14 +372,14 @@ export function FindingsPanel({ findings }: { findings: FindingItem[] }) {
                           target="_blank"
                           rel="noopener noreferrer"
                           onClick={(e) => e.stopPropagation()}
-                          className="rounded-full border border-[#00c9e8]/30 bg-[#00c9e8]/10 px-2.5 py-0.5 text-xs font-bold text-[#00c9e8] hover:bg-[#00c9e8]/20 transition-colors"
+                          className="rounded-full border border-brand/30 bg-brand/10 px-2.5 py-0.5 text-xs font-bold text-brand hover:bg-brand/20 transition-colors"
                         >
                           {item.cweId}
                         </a>
                       )}
                     </div>
-                    <h3 className="text-lg font-bold text-white mb-1 group-hover:text-[#00c9e8] transition-colors">{item.title}</h3>
-                    <p className="flex min-w-0 items-center gap-1.5 truncate font-mono text-xs text-[#cfe0ea]/70 bg-black/20 w-fit px-2 py-1 rounded-md border border-white/5">
+                    <h3 className="text-lg font-bold text-foreground mb-1 group-hover:text-brand transition-colors">{item.title}</h3>
+                    <p className="flex min-w-0 items-center gap-1.5 truncate font-mono text-xs text-muted-foreground bg-muted w-fit px-2 py-1 rounded-md border border-border">
                       <FileCode2 className="h-3.5 w-3.5 shrink-0 text-slate-400" />
                       {item.filePath}:{lineRange}
                     </p>
@@ -391,7 +390,7 @@ export function FindingsPanel({ findings }: { findings: FindingItem[] }) {
                     <ChevronDown
                       className={cn(
                         "mt-1 h-5 w-5 shrink-0 text-slate-400 transition-transform duration-300",
-                        isOpen && "rotate-180 text-[#00c9e8]",
+                        isOpen && "rotate-180 text-brand",
                       )}
                     />
                   </div>
@@ -399,7 +398,7 @@ export function FindingsPanel({ findings }: { findings: FindingItem[] }) {
 
                 {/* Detail panel */}
                 {isOpen && (
-                  <div className="border-t border-white/10 bg-[#05090b]/50">
+                  <div className="border-t border-border bg-muted/30">
                     {/* Metadata strip */}
                     <div className="grid gap-3 p-5 md:grid-cols-2 xl:grid-cols-4">
                       {[
@@ -426,8 +425,8 @@ export function FindingsPanel({ findings }: { findings: FindingItem[] }) {
                             className={cn(
                               "rounded-lg px-4 py-2 text-xs font-bold capitalize transition-all duration-200 border",
                               tab === t
-                                ? "bg-white/10 border-[#00c9e8]/50 text-white shadow-[0_0_10px_rgba(0,201,232,0.1)]"
-                                : "bg-transparent border-transparent text-slate-400 hover:bg-white/5 hover:text-white",
+                                ? "bg-brand/10 border-brand/50 text-brand"
+                                : "bg-transparent border-transparent text-muted-foreground hover:bg-muted hover:text-foreground",
                             )}
                           >
                             {t === "pentest" ? "Pentest Hints" : t.charAt(0).toUpperCase() + t.slice(1)}
@@ -457,10 +456,10 @@ export function FindingsPanel({ findings }: { findings: FindingItem[] }) {
                           </div>
                           <div className="grid gap-4 md:grid-cols-2">
                             <div className="rounded-xl bg-white/5 border border-white/10 p-4">
-                              <h4 className="text-xs font-bold uppercase text-[#00c9e8] mb-2 flex items-center gap-1.5">
+                              <h4 className="text-xs font-bold uppercase text-brand mb-2 flex items-center gap-1.5">
                                 <HelpCircle className="w-3.5 h-3.5" /> Why vulnerable
                               </h4>
-                              <p className="text-sm text-[#cfe0ea] leading-relaxed">
+                              <p className="text-sm text-muted-foreground leading-relaxed">
                                 {item.whyVulnerable || item.attackScenario}
                               </p>
                             </div>
@@ -468,7 +467,7 @@ export function FindingsPanel({ findings }: { findings: FindingItem[] }) {
                               <h4 className="text-xs font-bold uppercase text-red-400 mb-2 flex items-center gap-1.5">
                                 <ShieldAlert className="w-3.5 h-3.5" /> Attack Scenario
                               </h4>
-                              <p className="text-sm text-[#cfe0ea] leading-relaxed">{item.attackScenario}</p>
+                              <p className="text-sm text-muted-foreground leading-relaxed">{item.attackScenario}</p>
                             </div>
                           </div>
                         </div>
@@ -486,8 +485,8 @@ export function FindingsPanel({ findings }: { findings: FindingItem[] }) {
                             </p>
                           </div>
                           <div className="rounded-xl bg-white/5 border border-white/10 p-5">
-                            <h4 className="text-xs font-bold uppercase text-[#00c9e8] mb-2">Proof of Concept (PoC)</h4>
-                            <p className="text-sm text-[#cfe0ea] leading-relaxed font-mono bg-black/30 p-3 rounded-lg border border-white/5">{item.poc || "Not provided."}</p>
+                            <h4 className="text-xs font-bold uppercase text-brand mb-2">Proof of Concept (PoC)</h4>
+                            <p className="text-sm text-muted-foreground leading-relaxed font-mono bg-muted p-3 rounded-lg border border-border">{item.poc || "Not provided."}</p>
                           </div>
                           {item.owaspCategory && (
                             <div className="rounded-xl bg-white/5 border border-white/10 p-4 inline-block">
@@ -524,15 +523,15 @@ export function FindingsPanel({ findings }: { findings: FindingItem[] }) {
                       {/* Pentest Hints tab */}
                       {tab === "pentest" && (
                         <div className="space-y-4">
-                          <div className="rounded-xl border border-[#00c9e8]/30 bg-[#00c9e8]/10 p-5 shadow-[0_0_20px_rgba(0,201,232,0.1)]">
-                            <h4 className="mb-3 text-xs font-bold uppercase text-[#00c9e8]">
+                          <div className="rounded-xl border border-brand/30 bg-brand/10 p-5">
+                            <h4 className="mb-3 text-xs font-bold uppercase text-brand">
                               Authorised Verification Steps
                             </h4>
                             {item.pentestHint ? (
                               <ul className="space-y-2">
                                 {item.pentestHint.split("\n").filter(Boolean).map((line, i) => (
                                   <li key={i} className="flex gap-3 text-sm text-white">
-                                    <span className="shrink-0 font-bold text-[#00c9e8]">→</span>
+                                    <span className="shrink-0 font-bold text-brand">-&gt;</span>
                                     <span>{line.replace(/^\d+\.\s*/, "")}</span>
                                   </li>
                                 ))}
@@ -545,7 +544,7 @@ export function FindingsPanel({ findings }: { findings: FindingItem[] }) {
                           </div>
                           <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-xs font-bold text-amber-400 flex items-center gap-2">
                             <ShieldAlert className="w-4 h-4" />
-                            ⚠️ Only perform verification steps in authorised environments using staging/test accounts.
+                            Warning: Only perform verification steps in authorised environments using staging/test accounts.
                           </div>
                         </div>
                       )}
@@ -556,10 +555,9 @@ export function FindingsPanel({ findings }: { findings: FindingItem[] }) {
                           <div className="grid gap-4 md:grid-cols-2">
                             <div className="rounded-xl bg-white/5 border border-white/10 p-4">
                               <label className="block text-xs font-bold uppercase text-slate-400 mb-2">Status</label>
-                              <select 
+                              <Select 
                                 value={item.status || "open"}
                                 onChange={(e) => handleUpdateStatus(item.id, "status", e.target.value)}
-                                className="w-full rounded-lg border border-white/10 bg-[#05090b] p-2.5 text-sm text-white outline-none focus:border-[#00c9e8] focus:ring-1 focus:ring-[#00c9e8]/50"
                               >
                                 <option value="open">Open</option>
                                 <option value="confirmed">Confirmed</option>
@@ -569,14 +567,13 @@ export function FindingsPanel({ findings }: { findings: FindingItem[] }) {
                                 <option value="false_positive">False Positive</option>
                                 <option value="ignored">Ignored</option>
                                 <option value="reopened">Reopened</option>
-                              </select>
+                              </Select>
                             </div>
                             <div className="rounded-xl bg-white/5 border border-white/10 p-4">
                               <label className="block text-xs font-bold uppercase text-slate-400 mb-2">Verification</label>
-                              <select 
+                              <Select 
                                 value={item.verificationStatus || "unverified"}
                                 onChange={(e) => handleUpdateStatus(item.id, "verification_status", e.target.value)}
-                                className="w-full rounded-lg border border-white/10 bg-[#05090b] p-2.5 text-sm text-white outline-none focus:border-[#00c9e8] focus:ring-1 focus:ring-[#00c9e8]/50"
                               >
                                 <option value="unverified">Unverified</option>
                                 <option value="verified">Verified</option>
@@ -584,7 +581,7 @@ export function FindingsPanel({ findings }: { findings: FindingItem[] }) {
                                 <option value="false_positive_likely">FP Likely</option>
                                 <option value="skipped">Skipped</option>
                                 <option value="failed">Verify Failed</option>
-                              </select>
+                              </Select>
                             </div>
                           </div>
                           <div className="rounded-xl bg-white/5 border border-white/10 p-5">
@@ -611,10 +608,10 @@ export function FindingsPanel({ findings }: { findings: FindingItem[] }) {
                                 href={`https://cwe.mitre.org/data/definitions/${item.cweId.replace("CWE-", "")}.html`}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="inline-flex items-center gap-1 text-sm font-bold text-[#00c9e8] hover:underline"
+                                className="inline-flex items-center gap-1 text-sm font-bold text-brand hover:underline"
                               >
                                 <ExternalLink className="h-4 w-4" />
-                                {item.cweId} – CWE Mitre
+                                {item.cweId} - CWE Mitre
                               </a>
                             </div>
                           )}

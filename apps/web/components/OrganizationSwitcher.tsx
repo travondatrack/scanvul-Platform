@@ -2,6 +2,7 @@
 
 import { Building2 } from "lucide-react";
 import { useEffect, useState } from "react";
+import { Select } from "@/components/ui/select";
 
 type OrganizationItem = {
   id: string;
@@ -23,15 +24,15 @@ export function OrganizationSwitcher() {
 
   return (
     <div className="px-4">
-      <label className="mb-2 block px-2 text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-zinc-500">
+      <label className="mb-2 block px-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
         Workspace
       </label>
       <div className="relative">
-        <Building2 className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-        <select
+        <Building2 className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <Select
           value={selected}
           onChange={(event) => setSelected(event.target.value)}
-          className="w-full appearance-none rounded-lg border border-slate-200 bg-white py-2 pl-9 pr-3 text-sm font-medium text-slate-700 outline-none transition focus:border-brand/60 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-200"
+          className="appearance-none pl-9 font-medium"
         >
           <option value="personal">Personal</option>
           {organizations.map((org) => (
@@ -39,7 +40,7 @@ export function OrganizationSwitcher() {
               {org.name}
             </option>
           ))}
-        </select>
+        </Select>
       </div>
     </div>
   );

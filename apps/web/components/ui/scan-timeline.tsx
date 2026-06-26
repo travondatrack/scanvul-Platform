@@ -19,26 +19,26 @@ export function ScanTimeline({ events }: ScanTimelineProps) {
   const sortedEvents = [...events].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
 
   const getIcon = (type: string) => {
-    if (type.includes("started") || type.includes("running")) return <PlayCircle className="w-4 h-4 text-[#00c9e8]" />;
+    if (type.includes("started") || type.includes("running")) return <PlayCircle className="w-4 h-4 text-brand" />;
     if (type.includes("failed") || type.includes("error")) return <AlertCircle className="w-4 h-4 text-red-400" />;
     if (type.includes("completed")) return <CheckCircle2 className="w-4 h-4 text-emerald-400" />;
     return <Clock className="w-4 h-4 text-slate-400" />;
   };
 
   return (
-    <div className="bg-[#0b1215]/80 border border-white/10 rounded-2xl p-6 shadow-[0_14px_42px_rgba(0,0,0,0.16)] backdrop-blur-xl">
-      <h3 className="text-lg font-bold text-white mb-6">Scan Timeline</h3>
-      <div className="relative border-l border-white/10 ml-3 space-y-6">
+    <div className="bg-card text-card-foreground border border-border rounded-xl p-6 shadow-sm">
+      <h3 className="text-lg font-bold text-foreground mb-6">Scan Timeline</h3>
+      <div className="relative border-l border-border ml-3 space-y-6">
         {sortedEvents.map((event, idx) => (
           <div key={event.id} className="relative pl-6">
-            <span className="absolute -left-2.5 top-1 bg-[#0b1215] border border-white/10 rounded-full p-0.5">
+            <span className="absolute -left-2.5 top-1 bg-card border border-border rounded-full p-0.5">
               {getIcon(event.eventType)}
             </span>
             <div className="flex flex-col">
-              <span className="text-sm font-bold text-white capitalize">{event.eventType.replace(/_/g, " ")}</span>
+              <span className="text-sm font-bold text-foreground capitalize">{event.eventType.replace(/_/g, " ")}</span>
               <span className="text-xs text-slate-400 mt-1">{new Date(event.createdAt).toLocaleString()}</span>
               {event.message && (
-                <p className="text-sm text-slate-300 mt-2 bg-white/5 p-3 rounded-xl border border-white/5">
+                <p className="text-sm text-foreground mt-2 bg-muted/40 p-3 rounded-xl border border-border">
                   {event.message}
                 </p>
               )}

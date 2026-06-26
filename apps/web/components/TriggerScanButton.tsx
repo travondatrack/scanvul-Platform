@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, Play } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 export default function TriggerScanButton({ projectId, repoUrl }: { projectId: string; repoUrl: string }) {
   const router = useRouter();
@@ -29,10 +30,9 @@ export default function TriggerScanButton({ projectId, repoUrl }: { projectId: s
   };
 
   return (
-    <button
+    <Button
       onClick={handleTriggerScan}
       disabled={isScanning || !repoUrl}
-      className="flex items-center space-x-2 bg-brand hover:opacity-90 disabled:bg-slate-200 disabled:text-slate-400 dark:disabled:bg-zinc-800 dark:disabled:text-zinc-500 text-white px-4 py-2.5 rounded-xl font-medium transition-all shadow-sm dark:shadow-lg dark:shadow-brand/20 active:scale-[0.98]"
     >
       {isScanning ? (
         <Loader2 className="w-5 h-5 animate-spin" />
@@ -40,6 +40,6 @@ export default function TriggerScanButton({ projectId, repoUrl }: { projectId: s
         <Play className="w-5 h-5" />
       )}
       <span>{isScanning ? "Starting..." : "Trigger Scan"}</span>
-    </button>
+    </Button>
   );
 }

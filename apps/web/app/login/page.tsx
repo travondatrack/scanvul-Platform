@@ -5,6 +5,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -74,26 +76,26 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#05090b] text-white relative overflow-hidden font-sans">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_22%_12%,rgba(0,201,232,0.12),transparent_28%),radial-gradient(circle_at_80%_0%,rgba(0,112,143,0.16),transparent_30%)]" />
+    <div className="min-h-screen flex items-center justify-center bg-background text-foreground relative overflow-hidden font-sans">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_22%_12%,hsl(var(--brand)/0.14),transparent_28%),radial-gradient(circle_at_80%_0%,hsl(var(--brand)/0.12),transparent_30%)]" />
       <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(90deg,rgba(255,255,255,0.018)_1px,transparent_1px),linear-gradient(180deg,rgba(255,255,255,0.018)_1px,transparent_1px)] bg-[size:80px_80px] opacity-35" />
 
-      <div className="relative z-10 w-full max-w-md p-8 bg-[#0b1215]/80 backdrop-blur-md border border-white/10 rounded-2xl shadow-[0_14px_42px_rgba(0,0,0,0.16)]">
+      <div className="relative z-10 w-full max-w-md p-8 bg-card/90 text-card-foreground backdrop-blur-md border border-border rounded-xl shadow-sm">
         <div className="flex flex-col items-center space-y-6">
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-[#073144] to-[#0a839b] rounded-xl flex items-center justify-center shadow-[0_0_18px_rgba(0,196,224,0.22)]">
+            <div className="w-10 h-10 bg-brand rounded-lg flex items-center justify-center shadow-sm">
               <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
               </svg>
             </div>
             <h1 className="text-3xl font-extrabold tracking-[-0.03em] drop-shadow-[0_2px_10px_rgba(0,0,0,0.25)]">
-              ScanVul <span className="text-[#00c9e8]">AI</span>
+              ScanVul <span className="text-brand">AI</span>
             </h1>
           </div>
 
           <div className="text-center space-y-2">
-            <h2 className="text-2xl font-bold tracking-tight text-white">Welcome back</h2>
-            <p className="text-sm text-[#cfe0ea]">Sign in to manage your security scans</p>
+            <h2 className="text-2xl font-bold tracking-tight text-foreground">Welcome back</h2>
+            <p className="text-sm text-muted-foreground">Sign in to manage your security scans</p>
           </div>
 
           <form onSubmit={handleSubmit} className="w-full space-y-4 pt-4">
@@ -105,7 +107,7 @@ export default function LoginPage() {
                     type="button"
                     onClick={handleResendVerification}
                     disabled={isResending || !email}
-                    className="block text-[#00c9e8] hover:opacity-80 font-bold disabled:opacity-50"
+                    className="block text-brand hover:opacity-80 font-bold disabled:opacity-50"
                   >
                     {isResending ? "Sending..." : "Resend verification code"}
                   </button>
@@ -115,49 +117,48 @@ export default function LoginPage() {
             
             <div className="space-y-1">
               <label className="text-xs font-medium text-slate-400 ml-1">Email</label>
-              <input
+              <Input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="john@example.com"
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-[#00c9e8] focus:ring-1 focus:ring-[#00c9e8]/50 transition-all placeholder:text-slate-500"
                 required
               />
             </div>
 
             <div className="space-y-1">
               <label className="text-xs font-medium text-slate-400 ml-1">Password</label>
-              <input
+              <Input
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-[#00c9e8] focus:ring-1 focus:ring-[#00c9e8]/50 transition-all placeholder:text-slate-500"
                 required
               />
             </div>
 
-            <button
+            <Button
               type="submit"
               disabled={isLoading}
-              className="w-full bg-gradient-to-b from-[#21dcf8] to-[#0797b9] hover:opacity-90 text-white py-3 rounded-xl font-bold transition-all duration-200 shadow-[0_0_22px_rgba(0,207,234,0.34)] active:scale-[0.98] disabled:opacity-50 flex items-center justify-center space-x-2 mt-2"
+              variant="brandHero"
+              className="w-full"
             >
               {isLoading && <Loader2 className="w-4 h-4 animate-spin" />}
               <span>{isLoading ? "Signing in..." : "Sign In"}</span>
-            </button>
+            </Button>
           </form>
 
           {googleAuthEnabled ? (
           <div className="w-full space-y-4 pt-2">
               <div className="relative flex items-center py-2">
-              <div className="flex-grow border-t border-white/10"></div>
+              <div className="flex-grow border-t border-border"></div>
               <span className="flex-shrink-0 px-4 text-xs text-slate-500 font-medium">OR</span>
-              <div className="flex-grow border-t border-white/10"></div>
+              <div className="flex-grow border-t border-border"></div>
             </div>
 
             <button
               onClick={() => signIn("google", { callbackUrl: "/projects" })}
-              className="w-full flex items-center justify-center space-x-3 bg-white hover:bg-slate-50 text-zinc-900 px-4 py-3 rounded-xl font-bold transition-all duration-200 shadow-sm border border-slate-200 active:scale-[0.98]"
+              className={buttonVariants({ variant: "outline", className: "w-full space-x-3" })}
             >
               <svg className="w-5 h-5" viewBox="0 0 24 24">
                 <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
@@ -172,7 +173,7 @@ export default function LoginPage() {
 
           <p className="text-sm text-slate-400 pt-2">
             Don't have an account?{" "}
-            <Link href="/register" className="text-[#00c9e8] hover:opacity-80 font-bold">
+            <Link href="/register" className="text-brand hover:opacity-80 font-bold">
               Sign up
             </Link>
           </p>
