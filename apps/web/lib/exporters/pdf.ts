@@ -11,7 +11,8 @@ const fonts = {
   },
 };
 
-const printer = new PdfPrinter(fonts);
+const PdfPrinterClass = PdfPrinter as any;
+const printer = new PdfPrinterClass(fonts);
 
 export async function generatePdfReport(scanData: any, summary: any): Promise<Buffer> {
   const maskedFindings = scanData.findings.map(maskFindingSecrets);
