@@ -322,10 +322,10 @@ describe("accessibleProjectWhere shape", () => {
     const clauses = where.OR as unknown[];
     const orgClause = clauses.find((c: unknown) => (c as Record<string, unknown>)?.organization) as Record<string, unknown> | undefined;
     if (orgClause) {
-      const members = (orgClause.organization as Record<string, unknown>)?.members as Record<string, unknown>;
-      const roles: string[] = (members?.some as Record<string, unknown>)?.role?.in as string[];
-      if (roles) {
-        expect(roles).not.toContain("viewer");
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const rolesInFilter: string[] | undefined = (orgClause.organization as any)?.members?.some?.role?.in;
+      if (rolesInFilter) {
+        expect(rolesInFilter).not.toContain("viewer");
       }
     }
   });

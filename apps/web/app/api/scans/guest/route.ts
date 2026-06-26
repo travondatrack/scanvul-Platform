@@ -1,91 +1,88 @@
-import { NextRequest, NextResponse as ServerResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
-import Redis from "ioredis";
-import { v4 as uuidv4 } from "uuid"; // Needs to be installed, but Prisma uuid() is available on insert.
+import { NextRequest, NextResponse } from "next/server";
+import { BackendError, postBackend } from "@/lib/backend";
 
+// In-memory rate limit — mirrors FastAPI's guest rate limit for early rejection
+// This prevents unnecessary round-trips to the backend when the client is clearly abusing
 const rateLimitMap = new Map<string, { count: number; expiresAt: number }>();
+const GUEST_LIMIT = 5;
+const WINDOW_MS = 3600 * 1000; // 1 hour
+
+function checkRateLimit(ip: string): number {
+  const now = Date.now();
+  const entry = rateLimitMap.get(ip);
+
+  let count = 1;
+  let expiresAt = now + WINDOW_MS;
+
+  if (entry && now <= entry.expiresAt) {
+    count = entry.count + 1;
+    expiresAt = entry.expiresAt;
+  }
+
+  rateLimitMap.set(ip, { count, expiresAt });
+
+  if (count > GUEST_LIMIT) {
+    return -1; // over limit
+  }
+  return GUEST_LIMIT - count; // remaining
+}
 
 export async function POST(req: NextRequest) {
   try {
-    // 1. IP Rate Limiting via In-Memory Map
-    const ip = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "unknown-ip";
-    
-    const now = Date.now();
-    const rateLimitData = rateLimitMap.get(ip);
-    
-    let requests = 1;
-    if (rateLimitData) {
-      if (now > rateLimitData.expiresAt) {
-        // Expired, reset
-        requests = 1;
-      } else {
-        requests = rateLimitData.count + 1;
-      }
-    }
+    // Early IP-based rate limiting (mirrors FastAPI's own check)
+    const ip =
+      req.headers.get("x-forwarded-for")?.split(",")[0].trim() ||
+      req.headers.get("x-real-ip") ||
+      "unknown";
 
-    rateLimitMap.set(ip, {
-      count: requests,
-      expiresAt: rateLimitData && now <= rateLimitData.expiresAt ? rateLimitData.expiresAt : now + 3600 * 1000 // 1 hour
-    });
-
-    if (requests > 5) {
-      return ServerResponse.json(
+    const remaining = checkRateLimit(ip);
+    if (remaining < 0) {
+      return NextResponse.json(
         { error: "Rate limit exceeded. Maximum 5 guest scans per hour." },
-        { status: 429 }
+        { status: 429, headers: { "Retry-After": "3600" } },
       );
     }
 
-    // 2. Parse request
+    // Parse + forward to FastAPI guest endpoint
     const body = await req.json();
-    const { sourceType, sourceValue, codeSnippet, language } = body;
-    
-    const actualSourceType = sourceType || "paste";
-    const actualSourceValue = sourceValue || codeSnippet;
 
-    if (!actualSourceValue || typeof actualSourceValue !== "string" || actualSourceValue.length > 500000) {
-      return ServerResponse.json(
-        { error: "Invalid input. Maximum size is 500KB." },
-        { status: 400 }
-      );
-    }
-
-    // 3. Create a temporary project/scan in Database
-    const scan = await prisma.scan.create({
-      data: {
-        sourceType: actualSourceType,
-        sourceValue: actualSourceValue,
-        status: "queued",
-        languageSummary: JSON.stringify({ [language || "unknown"]: 100 }),
-      }
+    // Delegate entirely to FastAPI — it creates the scan record in its own DB,
+    // dispatches the worker, and handles all validation.
+    const result = await postBackend<{
+      message: string;
+      scanId: string;
+      remainingQuota: number;
+    }>("scans/guest", {
+      sourceType: body.sourceType ?? "paste",
+      sourceValue: body.sourceValue ?? body.codeSnippet,
+      language: body.language,
     });
 
-    // 4. Push job to Python FastAPI Worker via HTTP
-    const jobData = {
-      scan_id: scan.id,
-      source_type: actualSourceType,
-      source_value: actualSourceValue,
-      is_guest: true
-    };
-    
-    try {
-      await fetch("http://127.0.0.1:8001/api/v1/scan/trigger", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(jobData)
-      });
-    } catch (fetchError) {
-      console.error("Failed to trigger Python worker via HTTP:", fetchError);
-      // We don't fail the request, scan remains queued.
-    }
-
-    return ServerResponse.json({
-      message: "Scan queued successfully",
-      scanId: scan.id,
-      remainingQuota: 5 - requests
+    return NextResponse.json({
+      message: result.message,
+      scanId: result.scanId,
+      remainingQuota: result.remainingQuota,
     });
-
   } catch (error) {
+    if (error instanceof BackendError) {
+      if (error.status === 429) {
+        return NextResponse.json(
+          { error: "Rate limit exceeded. Maximum 5 guest scans per hour." },
+          { status: 429, headers: { "Retry-After": "3600" } },
+        );
+      }
+      if (error.status === 400 || error.status === 413) {
+        return NextResponse.json({ error: error.message }, { status: error.status });
+      }
+      if (error.status === 503 || error.status === 0) {
+        return NextResponse.json(
+          { error: "Scan engine is currently unavailable. Please try again later." },
+          { status: 503 },
+        );
+      }
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
     console.error("Guest scan error:", error);
-    return ServerResponse.json({ error: "Internal Server Error" }, { status: 500 });
+    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }

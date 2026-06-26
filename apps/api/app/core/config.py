@@ -46,6 +46,17 @@ class Settings(BaseSettings):
     jwt_secret: str = "secret"
     jwt_expires_minutes: int = 60
 
+    # Scan safety limits
+    # Seconds to wait for git clone before aborting (prevents infinite hang on large repos)
+    git_clone_timeout_seconds: int = 120
+    # Allowed URL prefixes for repo_url source type
+    allowed_repo_url_prefixes: str = "https://github.com/,https://gitlab.com/,http://github.com/,http://gitlab.com/"
+    # Max bytes accepted for paste/guest scan source value
+    guest_scan_max_bytes: int = 524288  # 512 KB
+    # Max bytes for project scan source value
+    scan_source_max_bytes: int = 10485760  # 10 MB
+
+
     model_config = SettingsConfigDict(
         env_file=(".env", "../../.env"),
         case_sensitive=False,

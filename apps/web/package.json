@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "next lint",
     "test": "jest",
-    "test:rbac": "jest --testPathPatterns=rbac --verbose"
+    "test:rbac": "jest --testPathPatterns=rbac --verbose",
+    "test:scan-workflow": "jest --testPathPatterns=scan-workflow --verbose"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.2",

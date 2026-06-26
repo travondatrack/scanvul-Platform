@@ -1,16 +1,71 @@
-from typing import Literal
+from typing import Literal, Optional
 
 from pydantic import BaseModel, Field
 
 
+# ─── Request schemas ────────────────────────────────────────────────────────
+
 class ScanCreateRequest(BaseModel):
+    """Used by authenticated users and CI alias to create + queue a scan."""
     sourceType: Literal["repo_url", "archive", "paste"]
     sourceValue: str = Field(min_length=1)
+
+
+class GuestScanRequest(BaseModel):
+    """
+    Used by the guest (unauthenticated) scan endpoint.
+    Accepts paste or repo_url only; archive requires auth (upload flow).
+    """
+    sourceType: Literal["paste", "repo_url"] = "paste"
+    # Unified field — callers may also use codeSnippet for backward compat
+    sourceValue: Optional[str] = None
+    codeSnippet: Optional[str] = None  # alias for paste sourceValue
+    language: Optional[str] = None     # hint stored in languageSummary
+
+    def resolved_source_value(self) -> str:
+        """Return the canonical source value from either field."""
+        return (self.sourceValue or self.codeSnippet or "").strip()
 
 
 class UploadInitRequest(BaseModel):
     fileName: str = Field(min_length=1, max_length=255)
     size: int = Field(gt=0)
+
+
+class UploadCompleteRequest(BaseModel):
+    uploadId: str = Field(min_length=1)
+
+
+# ─── Response schemas ────────────────────────────────────────────────────────
+
+class ScanSummaryResponse(BaseModel):
+    id: str
+    status: str
+    riskLevel: str
+    riskPercent: float
+
+
+class ScanStatusResponse(BaseModel):
+    """Lightweight status response for polling — avoids sending full findings."""
+    id: str
+    status: str
+    riskLevel: str
+    riskPercent: float
+    updatedAt: str
+
+
+class TriggerResponse(BaseModel):
+    """Returned when triggering an existing scan."""
+    status: str   # "accepted" | "already_running" | "retrying"
+    scanId: str
+    message: str
+
+
+class GuestScanResponse(BaseModel):
+    """Returned after creating a guest scan."""
+    message: str
+    scanId: str
+    remainingQuota: int
 
 
 class UploadInitResponse(BaseModel):
@@ -20,12 +75,8 @@ class UploadInitResponse(BaseModel):
     status: str
 
 
-class UploadCompleteRequest(BaseModel):
-    uploadId: str = Field(min_length=1)
-
-
 class FindingResponse(BaseModel):
-    id: int
+    id: str
     engine: str
     ruleId: str
     scanCategory: str
@@ -62,15 +113,8 @@ class FindingResponse(BaseModel):
     references: str        # newline-separated CWE/OWASP/vendor links
 
     # Triage
-    verificationStatus: str   # unverified|verified|failed|skipped|needs_review|false_positive_likely
+    verificationStatus: str
     dedupeHash: str
-
-
-class ScanSummaryResponse(BaseModel):
-    id: str
-    status: str
-    riskLevel: str
-    riskPercent: float
 
 
 class ScanDetailResponse(ScanSummaryResponse):
