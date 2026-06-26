@@ -114,7 +114,7 @@ export default function RegisterPage() {
                 placeholder="••••••••"
                 className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 focus:outline-none focus:border-brand/50 focus:ring-1 focus:ring-brand/50 transition-all placeholder:text-slate-400"
                 required
-                minLength={6}
+                minLength={8}
               />
             </div>
 

@@ -1,16 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth/next";
-import { authOptions } from "../../../../lib/auth";
 import { prisma } from "@/lib/prisma";
+import { requireActiveUser } from "@/lib/session";
+
+const BACKEND_BASE = process.env.BACKEND_API_BASE_URL
+  ?? process.env.NEXT_PUBLIC_API_BASE_URL
+  ?? "http://127.0.0.1:8000";
 
 export async function POST(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session || !(session.user as any).id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const userId = (session.user as any).id;
+    const user = await requireActiveUser();
     const body = await req.json();
     const { projectId, repoUrl } = body;
 
@@ -23,14 +21,14 @@ export async function POST(req: NextRequest) {
       where: { id: projectId }
     });
 
-    if (!project || project.createdBy !== userId) {
+    if (!project || project.createdBy !== user.id) {
       return NextResponse.json({ error: "Project not found or access denied" }, { status: 404 });
     }
 
     const scan = await prisma.scan.create({
       data: {
         projectId,
-        triggeredBy: userId,
+        triggeredBy: user.id,
         sourceType: "repo_url",
         sourceValue: repoUrl,
         status: "queued",
@@ -38,7 +36,7 @@ export async function POST(req: NextRequest) {
     });
 
     try {
-      const pyRes = await fetch(`http://127.0.0.1:8001/api/v1/scan/${scan.id}/trigger`, {
+      const pyRes = await fetch(`${BACKEND_BASE}/api/v1/scan/${scan.id}/trigger`, {
         method: "POST"
       });
       
@@ -59,6 +57,12 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(scan, { status: 201 });
   } catch (error) {
+    if (error instanceof Error && error.message === "UNAUTHORIZED") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    if (error instanceof Error && error.message === "USER_DISABLED") {
+      return NextResponse.json({ error: "Account disabled" }, { status: 403 });
+    }
     console.error("Scan trigger error:", error);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }

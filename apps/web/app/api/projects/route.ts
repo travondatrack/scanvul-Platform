@@ -1,16 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth/next";
-import { authOptions } from "../../../lib/auth";
 import { prisma } from "@/lib/prisma";
+import { requireActiveUser } from "@/lib/session";
 
 export async function POST(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session || !(session.user as any).id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const userId = (session.user as any).id;
+    const user = await requireActiveUser();
     const body = await req.json();
     const { name, githubUrl } = body;
 
@@ -23,12 +17,18 @@ export async function POST(req: NextRequest) {
         name,
         repoUrl: githubUrl,
         sourceType: "github",
-        createdBy: userId,
+        createdBy: user.id,
       },
     });
 
     return NextResponse.json(project, { status: 201 });
   } catch (error) {
+    if (error instanceof Error && error.message === "UNAUTHORIZED") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    if (error instanceof Error && error.message === "USER_DISABLED") {
+      return NextResponse.json({ error: "Account disabled" }, { status: 403 });
+    }
     console.error("Project creation error:", error);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }

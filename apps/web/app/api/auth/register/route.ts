@@ -1,18 +1,34 @@
 import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
+import { isValidEmail, normalizeEmail, validatePassword } from "@/lib/auth-policy";
+import { checkRateLimit, rateLimitKey } from "@/lib/rate-limit";
 
 export async function POST(req: NextRequest) {
   try {
+    const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
+      ?? req.headers.get("x-real-ip")
+      ?? "unknown";
     const body = await req.json();
-    const { name, email, password } = body;
+    const { name, password } = body;
+    const email = normalizeEmail(body.email);
 
-    if (!email || !password) {
-      return NextResponse.json({ error: "Email and password are required" }, { status: 400 });
+    const limit = checkRateLimit(
+      rateLimitKey("register", `${ip}:${email}`),
+      { limit: 5, windowMs: 60 * 60 * 1000 },
+    );
+
+    if (!limit.allowed) {
+      return NextResponse.json({ error: "Too many registration attempts" }, { status: 429 });
     }
 
-    if (password.length < 6) {
-      return NextResponse.json({ error: "Password must be at least 6 characters" }, { status: 400 });
+    if (!isValidEmail(email)) {
+      return NextResponse.json({ error: "A valid email is required" }, { status: 400 });
+    }
+
+    const passwordError = validatePassword(password);
+    if (passwordError) {
+      return NextResponse.json({ error: passwordError }, { status: 400 });
     }
 
     // Check if user already exists
@@ -28,7 +44,7 @@ export async function POST(req: NextRequest) {
 
     const user = await prisma.user.create({
       data: {
-        name,
+        name: typeof name === "string" ? name.trim() : null,
         email,
         password: hashedPassword,
       },
@@ -37,7 +53,13 @@ export async function POST(req: NextRequest) {
     // Return success without password
     return NextResponse.json({
       message: "User registered successfully",
-      user: { id: user.id, email: user.email, name: user.name },
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        roleGlobal: user.roleGlobal,
+        status: user.status,
+      },
     }, { status: 201 });
 
   } catch (error) {

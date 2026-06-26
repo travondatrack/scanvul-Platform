@@ -1,7 +1,7 @@
 "use client";
 
-import { signIn } from "next-auth/react";
-import { useState } from "react";
+import { getProviders, signIn } from "next-auth/react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
@@ -12,6 +12,13 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [googleAuthEnabled, setGoogleAuthEnabled] = useState(false);
+
+  useEffect(() => {
+    getProviders()
+      .then((providers) => setGoogleAuthEnabled(Boolean(providers?.google)))
+      .catch(() => setGoogleAuthEnabled(false));
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -96,6 +103,7 @@ export default function LoginPage() {
             </button>
           </form>
 
+          {googleAuthEnabled ? (
           <div className="w-full space-y-4 pt-2">
               <div className="relative flex items-center py-2">
               <div className="flex-grow border-t border-slate-200"></div>
@@ -116,6 +124,7 @@ export default function LoginPage() {
               <span>Continue with Google</span>
             </button>
           </div>
+          ) : null}
 
           <p className="text-sm text-slate-500 pt-2">
             Don't have an account?{" "}
