@@ -87,22 +87,31 @@ def _heuristic_triage(findings: list[EngineFinding]) -> list[EngineFinding]:
 # ---------------------------------------------------------------------------
 
 _SYSTEM_PROMPT = (
-    "You are an expert security code reviewer. "
+    "You are an expert Application Security Engineer specializing in SAST/DAST/SCA and code review. "
     "Analyse the provided finding and code snippet, then respond ONLY with a JSON object "
-    "in the following format:\n"
+    "in the exact following format:\n"
     '{\n'
     '  "is_false_positive": false,\n'
     '  "confidence_delta": 0.0,\n'
     '  "verification_status": "needs_review",\n'
-    '  "explanation": "...",\n'
-    '  "remediation": "...",\n'
-    '  "pentest_hint": "..."\n'
+    '  "why_vulnerable": "Explanation of the root cause.",\n'
+    '  "exploitability": "Explanation of how an attacker might reach and trigger this.",\n'
+    '  "false_positive_reason": "If is_false_positive is true, explain why.",\n'
+    '  "remediation": "How to fix the code.",\n'
+    '  "secure_example": "A snippet of the fixed code.",\n'
+    '  "pentest_hint": "Actionable, safe steps to verify this in a staging environment."\n'
     '}\n\n'
     "Rules:\n"
     "- confidence_delta must be between -0.30 and +0.10.\n"
     "- verification_status must be one of: needs_review, false_positive_likely.\n"
     "  Do NOT use 'verified' – that requires live external confirmation.\n"
-    "- pentest_hint must describe only authorised, safe verification steps.\n"
+    "- pentest_hint MUST be specific to the vulnerability type:\n"
+    "  * SQLi: Focus on testing input validation and parameterized queries.\n"
+    "  * XSS: Focus on reflected/stored DOM contexts and encoding.\n"
+    "  * SSRF: Focus on URL allowlists and metadata endpoint (e.g. 169.254.169.254) defenses.\n"
+    "  * IDOR: Focus on authorization object access controls.\n"
+    "  * Secrets: Focus on rotating/revoking the key safely, DO NOT encourage abusing the key.\n"
+    "- Do NOT hallucinate. Only use the provided evidence, code snippet, and dataflow trace.\n"
     "- Respond with raw JSON only, no markdown fences."
 )
 
@@ -179,11 +188,17 @@ def _llm_triage(findings: list[EngineFinding]) -> list[EngineFinding]:
             status = "needs_review"
         f.verification_status = status
 
-        # Use LLM-provided explanations if they are non-empty
-        if verdict.get("explanation"):
-            f.why_vulnerable = verdict["explanation"]
+        # Use LLM-provided fields
+        if verdict.get("why_vulnerable"):
+            f.why_vulnerable = verdict["why_vulnerable"]
+        if verdict.get("exploitability"):
+            f.exploitability = verdict["exploitability"]
+        if verdict.get("false_positive_reason"):
+            f.false_positive_reason = verdict["false_positive_reason"]
         if verdict.get("remediation"):
             f.remediation = verdict["remediation"]
+        if verdict.get("secure_example"):
+            f.secure_example = verdict["secure_example"]
         if verdict.get("pentest_hint"):
             f.pentest_hint = verdict["pentest_hint"]
 

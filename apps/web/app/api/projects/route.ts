@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireActiveUser } from "@/lib/session";
+import { logAudit } from "@/lib/audit";
 import { accessibleProjectWhere } from "@/lib/access";
 
 export async function GET() {
@@ -64,6 +65,15 @@ export async function POST(req: NextRequest) {
         createdBy: user.id,
         organizationId: organizationId || null,
       },
+    });
+
+    await logAudit({
+      userId: user.id,
+      action: "create_project",
+      entityType: "Project",
+      entityId: project.id,
+      metadata: { name: project.name, repoUrl: project.repoUrl },
+      ipAddress: req.headers.get("x-forwarded-for") || undefined,
     });
 
     return NextResponse.json(project, { status: 201 });

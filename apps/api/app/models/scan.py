@@ -20,11 +20,33 @@ class Scan(Base):
     risk_percent: Mapped[float] = mapped_column(Float, default=0.0)
     language_summary: Mapped[str] = mapped_column(Text, default="{}")
     framework_summary: Mapped[str] = mapped_column(Text, default="{}")
+
+    # Metadata
+    started_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
+    completed_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
+    duration_ms: Mapped[int] = mapped_column(Integer, nullable=True)
+    error_message: Mapped[str] = mapped_column(Text, nullable=True)
+    worker_id: Mapped[str] = mapped_column(String(191), nullable=True)
+    engine_versions: Mapped[str] = mapped_column(Text, nullable=True)
+
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     findings: Mapped[list["Finding"]] = relationship(back_populates="scan", cascade="all,delete-orphan")
     badges: Mapped[list["PublicBadge"]] = relationship(back_populates="scan", cascade="all,delete-orphan")
+    scan_events: Mapped[list["ScanEvent"]] = relationship(back_populates="scan", cascade="all,delete-orphan")
+
+
+class ScanEvent(Base):
+    __tablename__ = "scan_events"
+
+    id: Mapped[str] = mapped_column(String(191), primary_key=True, default=lambda: str(uuid4()))
+    scan_id: Mapped[str] = mapped_column(String(191), ForeignKey("scans.id", ondelete="CASCADE"), nullable=False)
+    event_type: Mapped[str] = mapped_column(String(50), nullable=False)
+    message: Mapped[str] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    scan: Mapped[Scan] = relationship(back_populates="scan_events")
 
 
 class Finding(Base):
@@ -69,11 +91,13 @@ class Finding(Base):
     remediation: Mapped[str] = mapped_column(Text, default="")
     secure_example: Mapped[str] = mapped_column(Text, default="")
     pentest_hint: Mapped[str] = mapped_column(Text, default="")
+    code_link: Mapped[str] = mapped_column(Text, nullable=True)
     references: Mapped[str] = mapped_column("ext_references", Text, default="")
 
     # ── Triage & verification ─────────────────────────────────────────────────
     # verification_status: unverified|verified|failed|skipped|needs_review|false_positive_likely
     verification_status: Mapped[str] = mapped_column(String(40), default="unverified")
+    assignee_id: Mapped[str] = mapped_column(String(255), nullable=True)
     dedupe_hash: Mapped[str] = mapped_column(String(64), default="")
     status: Mapped[str] = mapped_column(String(20), default="open")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)

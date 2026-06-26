@@ -6,7 +6,7 @@ class Settings(BaseSettings):
     api_host: str = "0.0.0.0"
     api_port: int = 8000
 
-    database_url: str = "sqlite:///./codeguard.db"
+    database_url: str = "mysql+pymysql://root:root@localhost:3306/scanvul"
     redis_url: str = "redis://localhost:6379/0"
 
     scan_worker_mode: str = "thread"

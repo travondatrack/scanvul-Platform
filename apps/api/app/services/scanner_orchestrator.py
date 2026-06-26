@@ -29,7 +29,13 @@ def calculate_risk(findings: list[EngineFinding]) -> tuple[str, float]:
         return "Low", 5.0
 
     weights = {"Critical": 30, "High": 14, "Medium": 6, "Low": 2, "Info": 1}
+    # Factor in reachability (confidence)
     total = sum(weights.get(item.severity, 1) * item.confidence for item in findings)
+    
+    # Secret verification penalty/bonus
+    if any(f.scan_category == "Secret scan" and f.verification_status == "verified" for f in findings):
+        total += 20  # Verified live secret is a massive risk
+
     capped = min(float(total), 100.0)
     if any(item.severity == "Critical" for item in findings):
         capped = max(capped, 85.0)
@@ -270,7 +276,7 @@ def _calibrate_severity(item: EngineFinding) -> None:
 # Enrichment pipeline
 # ---------------------------------------------------------------------------
 
-def _enrich_findings(source_dir: Path, findings: list[EngineFinding]) -> list[EngineFinding]:
+def _enrich_findings(source_dir: Path, source_type: str, source_value: str, findings: list[EngineFinding]) -> list[EngineFinding]:
     for item in findings:
         context = _line_context(source_dir, item)
         item.scan_category = _scan_category(item)
@@ -289,6 +295,22 @@ def _enrich_findings(source_dir: Path, findings: list[EngineFinding]) -> list[En
         # Ensure evidence field is set for SAST findings (from code_snippet, not raw secret)
         if not item.evidence and item.code_snippet:
             item.evidence = item.code_snippet[:200]
+            
+        # Generate code_link
+        if source_type == "repo_url" and source_value.startswith("http"):
+            repo_base = source_value
+            if repo_base.endswith("/"):
+                repo_base = repo_base[:-1]
+            if repo_base.endswith(".git"):
+                repo_base = repo_base[:-4]
+            branch = "main" # Can be improved if we store branch
+            line_hash = f"#L{item.line_start}"
+            if item.line_end and item.line_end > item.line_start:
+                line_hash += f"-L{item.line_end}"
+            item.code_link = f"{repo_base}/blob/{branch}/{item.file_path}{line_hash}"
+        else:
+            item.code_link = f"/dashboard/scans/snippet?file={item.file_path}&line={item.line_start}"
+            
     return findings
 
 
@@ -365,31 +387,47 @@ def _add_attack_chain_findings(findings: list[EngineFinding]) -> list[EngineFind
 # Public entry point
 # ---------------------------------------------------------------------------
 
-def run_hybrid_scan(source_dir: Path) -> tuple[list[EngineFinding], dict, dict, str, float]:
+from typing import Callable, Optional
+
+def run_hybrid_scan(
+    source_dir: Path,
+    source_type: str = "",
+    source_value: str = "",
+    log_event: Optional[Callable[[str, str], None]] = None
+) -> tuple[list[EngineFinding], dict, dict, str, float]:
     findings: list[EngineFinding] = []
 
+    def _log(event_type: str, msg: str = "") -> None:
+        if log_event:
+            log_event(event_type, msg)
+
     # ── Stage 1: SAST ──────────────────────────────────────────────────────
+    _log("sast_scan_started", "Running SAST engines (Semgrep, Bandit, ESLint, Patterns)...")
     findings.extend(run_semgrep(source_dir))
     findings.extend(run_bandit(source_dir))
     findings.extend(run_eslint_security(source_dir))
     findings.extend(run_owasp_patterns_scan(source_dir))
 
     # ── Stage 2: Dependency scan ───────────────────────────────────────────
+    _log("dependency_scan_started", "Running Trivy dependency scan...")
     findings.extend(run_trivy_dependencies(source_dir))
 
     # ── Stage 3: Secret scan (opt-in live verification) ───────────────────
+    _log("secret_scan_started", "Running Secret scan...")
     findings.extend(run_secret_scan(source_dir, verify_enabled=settings.secret_verify_enabled))
 
     # ── Stage 4: Attack chain correlation ─────────────────────────────────
     findings = _add_attack_chain_findings(findings)
 
     # ── Stage 5: Enrich (source/sink, function, category, severity) ────────
-    findings = _enrich_findings(source_dir, findings)
+    findings = _enrich_findings(source_dir, source_type, source_value, findings)
 
     # ── Stage 6: Deduplicate by dedupe_hash ────────────────────────────────
     findings = _deduplicate_findings(findings)
 
     # ── Stage 7: AI triage (post-scan, adjusts confidence + status) ────────
+    if settings.llm_api_key:
+        _log("ai_triage_started", "Running AI triage on findings...")
     findings = run_ai_triage(findings, source_dir)
 
     # ── Stage 8: Confidence floor + triage stats ────────────────────────────

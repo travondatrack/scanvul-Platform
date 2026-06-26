@@ -85,6 +85,41 @@ export default async function ScanDetailPage({
     { label: "Findings", value: scan.findings.length.toString() },
   ];
 
+  const panelFindings = scan.findings.map((f: any) => ({
+    id: f.id,
+    status: f.status,
+    assigneeId: f.assignee_id ?? undefined,
+    severity: f.severity,
+    ruleId: f.rule_id ?? "",
+    scanCategory: f.scan_category ?? "SAST source code",
+    engine: f.engine,
+    title: f.title,
+    filePath: f.file_path,
+    lineNumber: f.line_number,
+    lineStart: f.line_start ?? f.line_number,
+    lineEnd: f.line_end ?? f.line_number,
+    source: f.source ?? "",
+    sink: f.sink ?? "",
+    functionName: f.function_name ?? "",
+    whyVulnerable: f.why_vulnerable ?? "",
+    attackScenario: f.attack_scenario ?? "",
+    impact: f.impact ?? "",
+    remediation: f.remediation ?? "",
+    poc: f.poc ?? "",
+    codeSnippet: f.code_snippet ?? "",
+    evidence: f.evidence ?? "",
+    pentestHint: f.pentest_hint ?? "",
+    references: f.ext_references ?? "",
+    cvss4: f.cvss4_score,
+    confidence: f.confidence,
+    verificationStatus: f.verification_status ?? "unverified",
+    dedupeHash: f.dedupe_hash ?? "",
+    dataflowTrace: f.dataflow_trace ?? "",
+    vulnType: f.vuln_type ?? "",
+    cweId: f.cwe_id ?? "",
+    owaspCategory: f.owasp_category ?? "",
+  }));
+
   return (
     <main className="min-h-screen px-4 py-5 md:px-8">
       <div className="mx-auto max-w-7xl">
@@ -191,7 +226,7 @@ export default async function ScanDetailPage({
                   ))}
                 </div>
               </div>
-              <FindingsPanel findings={scan.findings} />
+              <FindingsPanel findings={panelFindings} />
             </section>
           </div>
 

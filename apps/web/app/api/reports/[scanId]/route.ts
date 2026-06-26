@@ -2,13 +2,19 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireActiveUser } from "@/lib/session";
 import { requireScanAccess } from "@/lib/access";
+import { generateJsonReport } from "@/lib/exporters/json";
+import { generateSarifReport } from "@/lib/exporters/sarif";
+import { generatePdfReport } from "@/lib/exporters/pdf";
 
 type Params = { params: Promise<{ scanId: string }> };
 
-export async function GET(_req: NextRequest, { params }: Params) {
+export async function GET(req: NextRequest, { params }: Params) {
   try {
     const user = await requireActiveUser();
     const { scanId } = await params;
+    
+    const { searchParams } = new URL(req.url);
+    const format = searchParams.get("format") || "json";
 
     try {
       await requireScanAccess(user.id, scanId, "view");
@@ -52,6 +58,8 @@ export async function GET(_req: NextRequest, { params }: Params) {
             remediation: true,
             status: true,
             createdAt: true,
+            poc: true,
+            evidence: true,
           },
           orderBy: [{ severity: "asc" }, { cvss4Score: "desc" }],
         },
@@ -76,24 +84,33 @@ export async function GET(_req: NextRequest, { params }: Params) {
       accepted_risk: scan.findings.filter((f) => f.status === "accepted_risk").length,
     };
 
-    return NextResponse.json({
-      scan: {
-        id: scan.id,
-        status: scan.status,
-        riskLevel: scan.riskLevel,
-        riskPercent: scan.riskPercent,
-        sourceType: scan.sourceType,
-        sourceValue: scan.sourceValue,
-        languageSummary: scan.languageSummary,
-        frameworkSummary: scan.frameworkSummary,
-        createdAt: scan.createdAt,
-        updatedAt: scan.updatedAt,
-        project: scan.project,
+    if (format === "sarif") {
+      const sarif = generateSarifReport(scan);
+      return new NextResponse(JSON.stringify(sarif, null, 2), {
+        headers: {
+          "Content-Type": "application/sarif+json",
+          "Content-Disposition": `attachment; filename="scan-${scanId}.sarif"`,
+        },
+      });
+    }
+
+    if (format === "pdf") {
+      const pdfBuffer = await generatePdfReport(scan, summary);
+      return new NextResponse(pdfBuffer, {
+        headers: {
+          "Content-Type": "application/pdf",
+          "Content-Disposition": `attachment; filename="scan-${scanId}.pdf"`,
+        },
+      });
+    }
+
+    // Default to JSON
+    const jsonReport = generateJsonReport(scan, summary, user.id);
+    return new NextResponse(JSON.stringify(jsonReport, null, 2), {
+      headers: {
+        "Content-Type": "application/json",
+        "Content-Disposition": `attachment; filename="scan-${scanId}.json"`,
       },
-      summary,
-      findings: scan.findings,
-      exportedAt: new Date().toISOString(),
-      exportedBy: user.id,
     });
   } catch (error) {
     if (error instanceof Error && error.message === "UNAUTHORIZED") {

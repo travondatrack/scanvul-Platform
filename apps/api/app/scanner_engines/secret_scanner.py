@@ -214,6 +214,10 @@ def scan_file_for_secrets(
 
                 redacted = _redact(raw_value)
                 verification_status = _live_verify(secret_type, raw_value, verify_enabled)
+                
+                # Mask the secret in the code snippet to prevent leaking
+                safe_snippet = line.replace(raw_value, redacted).strip()[:200]
+                
                 # raw_value is no longer referenced after this point
 
                 confidence = 0.85
@@ -240,7 +244,7 @@ def scan_file_for_secrets(
                         line_end=line_num,
                         # evidence = redacted only — never raw secret
                         evidence=f"{secret_type}: {redacted}",
-                        code_snippet=line.strip()[:200],
+                        code_snippet=safe_snippet,
                         why_vulnerable=(
                             f"A hardcoded {secret_type} was detected in source code with high entropy "
                             f"(entropy ≥ {MIN_ENTROPY:.1f} bits/char), indicating a real credential rather than a placeholder."
@@ -276,9 +280,6 @@ def scan_file_for_secrets(
                             "https://github.com/gitleaks/gitleaks"
                         ),
                         verification_status=verification_status,
-                        dedupe_hash=hashlib.sha256(
-                            f"{rel_path}:{line_num}:{secret_type}".encode()
-                        ).hexdigest()[:16],
                     )
                 )
     return findings

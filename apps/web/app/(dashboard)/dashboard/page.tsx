@@ -48,104 +48,104 @@ export default async function DashboardOverviewPage() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div className="bg-white dark:bg-zinc-900/50 border border-slate-200 dark:border-zinc-800/50 rounded-2xl p-6 shadow-sm dark:shadow-xl dark:backdrop-blur-xl">
+        <div className="group bg-[#0b1215]/80 border border-white/10 rounded-2xl p-6 shadow-[0_14px_42px_rgba(0,0,0,0.16)] backdrop-blur-xl transition-all hover:border-[#00c9e8]/30 hover:bg-[#0b1215]/95">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-slate-500 dark:text-zinc-400 font-medium">Total Projects</h3>
-            <div className="w-10 h-10 rounded-xl bg-brand/10 dark:bg-brand/20 flex items-center justify-center">
-              <FolderKanban className="w-5 h-5 text-brand" />
+            <h3 className="text-[#cfe0ea] font-medium">Total Projects</h3>
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#073144] to-[#0a839b] flex items-center justify-center shadow-[0_0_18px_rgba(0,196,224,0.22)] group-hover:scale-110 transition-transform">
+              <FolderKanban className="w-5 h-5 text-white" />
             </div>
           </div>
-          <p className="text-4xl font-bold text-slate-900 dark:text-white">{totalProjects}</p>
+          <p className="text-4xl font-extrabold text-white">{totalProjects}</p>
         </div>
 
-        <div className="bg-white dark:bg-zinc-900/50 border border-slate-200 dark:border-zinc-800/50 rounded-2xl p-6 shadow-sm dark:shadow-xl dark:backdrop-blur-xl">
+        <div className="group bg-[#0b1215]/80 border border-white/10 rounded-2xl p-6 shadow-[0_14px_42px_rgba(0,0,0,0.16)] backdrop-blur-xl transition-all hover:border-[#00c9e8]/30 hover:bg-[#0b1215]/95">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-slate-500 dark:text-zinc-400 font-medium">Total Scans</h3>
-            <div className="w-10 h-10 rounded-xl bg-brand/10 dark:bg-brand/20 flex items-center justify-center">
-              <Activity className="w-5 h-5 text-brand" />
+            <h3 className="text-[#cfe0ea] font-medium">Total Scans</h3>
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#073144] to-[#0a839b] flex items-center justify-center shadow-[0_0_18px_rgba(0,196,224,0.22)] group-hover:scale-110 transition-transform">
+              <Activity className="w-5 h-5 text-white" />
             </div>
           </div>
-          <p className="text-4xl font-bold text-slate-900 dark:text-white">{totalScans}</p>
+          <p className="text-4xl font-extrabold text-white">{totalScans}</p>
         </div>
 
-        <div className="bg-white dark:bg-zinc-900/50 border border-slate-200 dark:border-zinc-800/50 rounded-2xl p-6 shadow-sm dark:shadow-xl dark:backdrop-blur-xl">
+        <div className="group bg-[#0b1215]/80 border border-white/10 rounded-2xl p-6 shadow-[0_14px_42px_rgba(0,0,0,0.16)] backdrop-blur-xl transition-all hover:border-red-500/30 hover:bg-[#0b1215]/95">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-slate-500 dark:text-zinc-400 font-medium">Critical Risks</h3>
-            <div className="w-10 h-10 rounded-xl bg-red-50 dark:bg-red-500/10 flex items-center justify-center">
-              <ShieldAlert className="w-5 h-5 text-red-600 dark:text-red-400" />
+            <h3 className="text-[#cfe0ea] font-medium">Critical Risks</h3>
+            <div className="w-10 h-10 rounded-xl bg-red-500/10 flex items-center justify-center border border-red-500/20 group-hover:scale-110 transition-transform shadow-[0_0_15px_rgba(239,68,68,0.2)]">
+              <ShieldAlert className="w-5 h-5 text-red-500" />
             </div>
           </div>
-          <p className="text-4xl font-bold text-red-600 dark:text-red-400">{criticalCount}</p>
+          <p className="text-4xl font-extrabold text-red-500 drop-shadow-[0_0_10px_rgba(239,68,68,0.4)]">{criticalCount}</p>
         </div>
 
-        <div className="bg-white dark:bg-zinc-900/50 border border-slate-200 dark:border-zinc-800/50 rounded-2xl p-6 shadow-sm dark:shadow-xl dark:backdrop-blur-xl">
+        <div className="group bg-[#0b1215]/80 border border-white/10 rounded-2xl p-6 shadow-[0_14px_42px_rgba(0,0,0,0.16)] backdrop-blur-xl transition-all hover:border-orange-500/30 hover:bg-[#0b1215]/95">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-slate-500 dark:text-zinc-400 font-medium">High Risks</h3>
-            <div className="w-10 h-10 rounded-xl bg-orange-50 dark:bg-orange-500/10 flex items-center justify-center">
-              <AlertTriangle className="w-5 h-5 text-orange-600 dark:text-orange-400" />
+            <h3 className="text-[#cfe0ea] font-medium">High Risks</h3>
+            <div className="w-10 h-10 rounded-xl bg-orange-500/10 flex items-center justify-center border border-orange-500/20 group-hover:scale-110 transition-transform shadow-[0_0_15px_rgba(249,115,22,0.2)]">
+              <AlertTriangle className="w-5 h-5 text-orange-500" />
             </div>
           </div>
-          <p className="text-4xl font-bold text-orange-600 dark:text-orange-400">{highCount}</p>
+          <p className="text-4xl font-extrabold text-orange-500 drop-shadow-[0_0_10px_rgba(249,115,22,0.4)]">{highCount}</p>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
-        <div className="bg-white dark:bg-zinc-900/50 border border-slate-200 dark:border-zinc-800/50 rounded-2xl p-6 shadow-sm dark:shadow-xl dark:backdrop-blur-xl">
-          <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-6">Active Vulnerabilities Breakdown</h2>
+        <div className="bg-[#0b1215]/80 border border-white/10 rounded-2xl p-6 shadow-[0_14px_42px_rgba(0,0,0,0.16)] backdrop-blur-xl">
+          <h2 className="text-xl font-bold text-white mb-6">Active Vulnerabilities Breakdown</h2>
           
           <div className="space-y-6">
             <div>
               <div className="flex justify-between text-sm mb-2">
-                <span className="text-red-600 dark:text-red-400 font-medium">Critical</span>
-                <span className="text-slate-500 dark:text-zinc-400">{criticalCount}</span>
+                <span className="text-red-400 font-medium">Critical</span>
+                <span className="text-slate-400">{criticalCount}</span>
               </div>
-              <div className="h-2 w-full bg-slate-100 dark:bg-zinc-800 rounded-full overflow-hidden">
-                <div className="h-full bg-red-500 dark:bg-red-500/80 rounded-full" style={{ width: `${criticalPct}%` }}></div>
-              </div>
-            </div>
-
-            <div>
-              <div className="flex justify-between text-sm mb-2">
-                <span className="text-orange-600 dark:text-orange-400 font-medium">High</span>
-                <span className="text-slate-500 dark:text-zinc-400">{highCount}</span>
-              </div>
-              <div className="h-2 w-full bg-slate-100 dark:bg-zinc-800 rounded-full overflow-hidden">
-                <div className="h-full bg-orange-500 dark:bg-orange-500/80 rounded-full" style={{ width: `${highPct}%` }}></div>
+              <div className="h-2 w-full bg-white/5 rounded-full overflow-hidden">
+                <div className="h-full bg-red-500 rounded-full shadow-[0_0_10px_rgba(239,68,68,0.5)]" style={{ width: `${criticalPct}%` }}></div>
               </div>
             </div>
 
             <div>
               <div className="flex justify-between text-sm mb-2">
-                <span className="text-amber-600 dark:text-yellow-400 font-medium">Medium</span>
-                <span className="text-slate-500 dark:text-zinc-400">{mediumCount}</span>
+                <span className="text-orange-400 font-medium">High</span>
+                <span className="text-slate-400">{highCount}</span>
               </div>
-              <div className="h-2 w-full bg-slate-100 dark:bg-zinc-800 rounded-full overflow-hidden">
-                <div className="h-full bg-amber-500 dark:bg-yellow-500/80 rounded-full" style={{ width: `${mediumPct}%` }}></div>
+              <div className="h-2 w-full bg-white/5 rounded-full overflow-hidden">
+                <div className="h-full bg-orange-500 rounded-full shadow-[0_0_10px_rgba(249,115,22,0.5)]" style={{ width: `${highPct}%` }}></div>
               </div>
             </div>
 
             <div>
               <div className="flex justify-between text-sm mb-2">
-                <span className="text-emerald-600 dark:text-emerald-400 font-medium">Low</span>
-                <span className="text-slate-500 dark:text-zinc-400">{lowCount}</span>
+                <span className="text-amber-400 font-medium">Medium</span>
+                <span className="text-slate-400">{mediumCount}</span>
               </div>
-              <div className="h-2 w-full bg-slate-100 dark:bg-zinc-800 rounded-full overflow-hidden">
-                <div className="h-full bg-emerald-500 dark:bg-emerald-500/80 rounded-full" style={{ width: `${lowPct}%` }}></div>
+              <div className="h-2 w-full bg-white/5 rounded-full overflow-hidden">
+                <div className="h-full bg-amber-500 rounded-full shadow-[0_0_10px_rgba(245,158,11,0.5)]" style={{ width: `${mediumPct}%` }}></div>
+              </div>
+            </div>
+
+            <div>
+              <div className="flex justify-between text-sm mb-2">
+                <span className="text-emerald-400 font-medium">Low</span>
+                <span className="text-slate-400">{lowCount}</span>
+              </div>
+              <div className="h-2 w-full bg-white/5 rounded-full overflow-hidden">
+                <div className="h-full bg-emerald-500 rounded-full shadow-[0_0_10px_rgba(16,185,129,0.5)]" style={{ width: `${lowPct}%` }}></div>
               </div>
             </div>
           </div>
         </div>
 
-        <div className="bg-white dark:bg-zinc-900/50 border border-slate-200 dark:border-zinc-800/50 rounded-2xl p-6 shadow-sm dark:shadow-xl dark:backdrop-blur-xl flex flex-col items-center justify-center text-center">
-          <div className="w-20 h-20 bg-emerald-50 dark:bg-emerald-500/10 rounded-full flex items-center justify-center mb-4">
-            <ShieldCheck className="w-10 h-10 text-emerald-600 dark:text-emerald-400" />
+        <div className="bg-[#0b1215]/80 border border-white/10 rounded-2xl p-6 shadow-[0_14px_42px_rgba(0,0,0,0.16)] backdrop-blur-xl flex flex-col items-center justify-center text-center">
+          <div className="w-20 h-20 bg-emerald-500/10 border border-emerald-500/20 rounded-full flex items-center justify-center mb-4 shadow-[0_0_30px_rgba(16,185,129,0.15)]">
+            <ShieldCheck className="w-10 h-10 text-emerald-500" />
           </div>
-          <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">Platform Health</h2>
-          <p className="text-slate-500 dark:text-zinc-400 max-w-md">
+          <h2 className="text-2xl font-bold text-white mb-2">Platform Health</h2>
+          <p className="text-[#cfe0ea] max-w-md">
             All SAST and Secret Scanning engines are online and protecting your codebases. 
             You have {totalActive} open findings across your repositories.
           </p>
-          <Link href="/projects" className="mt-6 px-6 py-2.5 bg-brand hover:opacity-90 text-white rounded-xl transition-colors text-sm font-medium">
+          <Link href="/projects" className="mt-6 px-6 py-3 bg-gradient-to-b from-[#21dcf8] to-[#0797b9] hover:opacity-90 text-white rounded-xl transition-all duration-200 shadow-[0_0_22px_rgba(0,207,234,0.34)] active:scale-[0.98] text-sm font-bold">
             Manage Projects
           </Link>
         </div>

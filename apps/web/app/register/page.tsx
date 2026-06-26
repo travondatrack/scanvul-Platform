@@ -52,67 +52,67 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="auth-light-page min-h-screen flex items-center justify-center bg-slate-50 text-slate-900 relative overflow-hidden font-sans">
-      <div className="absolute top-1/4 right-1/4 w-96 h-96 bg-cyan-500/10 rounded-full blur-[120px]" />
-      <div className="absolute bottom-1/4 left-1/4 w-[500px] h-[500px] bg-brand/10 rounded-full blur-[120px]" />
+    <div className="min-h-screen flex items-center justify-center bg-[#05090b] text-white relative overflow-hidden font-sans">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_22%_12%,rgba(0,201,232,0.12),transparent_28%),radial-gradient(circle_at_80%_0%,rgba(0,112,143,0.16),transparent_30%)]" />
+      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(90deg,rgba(255,255,255,0.018)_1px,transparent_1px),linear-gradient(180deg,rgba(255,255,255,0.018)_1px,transparent_1px)] bg-[size:80px_80px] opacity-35" />
 
-      <div className="relative z-10 w-full max-w-md p-8 bg-white/85 backdrop-blur-xl border border-slate-200 rounded-2xl shadow-xl">
+      <div className="relative z-10 w-full max-w-md p-8 bg-[#0b1215]/80 backdrop-blur-md border border-white/10 rounded-2xl shadow-[0_14px_42px_rgba(0,0,0,0.16)]">
         <div className="flex flex-col items-center space-y-6">
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-brand rounded-xl flex items-center justify-center shadow-lg">
+            <div className="w-10 h-10 bg-gradient-to-br from-[#073144] to-[#0a839b] rounded-xl flex items-center justify-center shadow-[0_0_18px_rgba(0,196,224,0.22)]">
               <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
               </svg>
             </div>
-            <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-brand to-cyan-500">
-              ScanVul AI
+            <h1 className="text-3xl font-extrabold tracking-[-0.03em] drop-shadow-[0_2px_10px_rgba(0,0,0,0.25)]">
+              ScanVul <span className="text-[#00c9e8]">AI</span>
             </h1>
           </div>
 
           <div className="text-center space-y-2">
-            <h2 className="text-2xl font-semibold tracking-tight text-slate-900">Create an account</h2>
-            <p className="text-sm text-slate-500">Start securing your code today</p>
+            <h2 className="text-2xl font-bold tracking-tight text-white">Create an account</h2>
+            <p className="text-sm text-[#cfe0ea]">Start securing your code today</p>
           </div>
 
           <form onSubmit={handleSubmit} className="w-full space-y-4 pt-4">
             {error && (
-              <div className="bg-red-50 border border-red-200 text-red-600 text-sm p-3 rounded-xl">
+              <div className="bg-red-500/10 border border-red-500/20 text-red-400 text-sm p-3 rounded-xl">
                 {error}
               </div>
             )}
             
             <div className="space-y-1">
-              <label className="text-xs font-medium text-slate-500 ml-1">Full Name</label>
+              <label className="text-xs font-medium text-slate-400 ml-1">Full Name</label>
               <input
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="John Doe"
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 focus:outline-none focus:border-brand/50 focus:ring-1 focus:ring-brand/50 transition-all placeholder:text-slate-400"
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-[#00c9e8] focus:ring-1 focus:ring-[#00c9e8]/50 transition-all placeholder:text-slate-500"
                 required
               />
             </div>
 
             <div className="space-y-1">
-              <label className="text-xs font-medium text-slate-500 ml-1">Email</label>
+              <label className="text-xs font-medium text-slate-400 ml-1">Email</label>
               <input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="john@example.com"
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 focus:outline-none focus:border-brand/50 focus:ring-1 focus:ring-brand/50 transition-all placeholder:text-slate-400"
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-[#00c9e8] focus:ring-1 focus:ring-[#00c9e8]/50 transition-all placeholder:text-slate-500"
                 required
               />
             </div>
 
             <div className="space-y-1">
-              <label className="text-xs font-medium text-slate-500 ml-1">Password</label>
+              <label className="text-xs font-medium text-slate-400 ml-1">Password</label>
               <input
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 focus:outline-none focus:border-brand/50 focus:ring-1 focus:ring-brand/50 transition-all placeholder:text-slate-400"
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-[#00c9e8] focus:ring-1 focus:ring-[#00c9e8]/50 transition-all placeholder:text-slate-500"
                 required
                 minLength={8}
               />
@@ -121,16 +121,16 @@ export default function RegisterPage() {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full bg-brand hover:opacity-90 text-white py-3 rounded-xl font-medium transition-all duration-200 shadow-lg shadow-brand/20 active:scale-[0.98] disabled:opacity-50 flex items-center justify-center space-x-2 mt-2"
+              className="w-full bg-gradient-to-b from-[#21dcf8] to-[#0797b9] hover:opacity-90 text-white py-3 rounded-xl font-bold transition-all duration-200 shadow-[0_0_22px_rgba(0,207,234,0.34)] active:scale-[0.98] disabled:opacity-50 flex items-center justify-center space-x-2 mt-2"
             >
               {isLoading && <Loader2 className="w-4 h-4 animate-spin" />}
               <span>{isLoading ? "Creating account..." : "Sign Up"}</span>
             </button>
           </form>
 
-          <p className="text-sm text-slate-500 pt-2">
+          <p className="text-sm text-slate-400 pt-2">
             Already have an account?{" "}
-            <Link href="/login" className="text-brand hover:opacity-80 font-medium">
+            <Link href="/login" className="text-[#00c9e8] hover:opacity-80 font-bold">
               Log in
             </Link>
           </p>

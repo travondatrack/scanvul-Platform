@@ -43,6 +43,9 @@ class EngineFinding:
     impact: str = ""
     pentest_hint: str = ""   # authorized, safe verification steps only
     references: str = ""     # newline-separated CWE/OWASP/vendor links
+    code_link: str = ""      # github blob URL or internal snippet viewer URL
+    exploitability: str = "" # AI explanation of how exploitable this is
+    false_positive_reason: str = "" # AI explanation if false positive
 
     # Triage & verification
     verification_status: str = "unverified"  # unverified|verified|failed|skipped|needs_review|false_positive_likely
@@ -62,5 +65,7 @@ class EngineFinding:
             self.line_end = self.line_start
         # Compute deduplication hash if not already set
         if not self.dedupe_hash:
-            raw = f"{self.rule_id}:{self.file_path}:{self.line_start}:{self.cwe_id}"
+            # Hash omits 'engine' to allow cross-engine deduplication of the same issue
+            # Using rule_id (normalized) + file_path + line_start
+            raw = f"{self.rule_id}:{self.file_path}:{self.line_start}"
             self.dedupe_hash = hashlib.sha256(raw.encode()).hexdigest()[:16]

@@ -8,21 +8,22 @@ datasource db {
 }
 
 model User {
-  id            String               @id @default(cuid())
-  name          String?
-  email         String?              @unique
-  emailVerified DateTime?
-  image         String?
-  roleGlobal    String               @default("user")
-  status        String               @default("active")
-  createdAt     DateTime             @default(now())
-  updatedAt     DateTime             @updatedAt
-  password      String?
-  accounts      Account[]
-  memberships   OrganizationMember[]
-  projects      Project[]
-  sessions      Session[]
-  findingEvents FindingEvent[]
+  id               String               @id @default(cuid())
+  name             String?
+  email            String?              @unique
+  emailVerified    DateTime?
+  image            String?
+  roleGlobal       String               @default("user")
+  status           String               @default("active")
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+  password         String?
+  accounts         Account[]
+  memberships      OrganizationMember[]
+  projects         Project[]
+  sessions         Session[]
+  findingEvents    FindingEvent[]
+  assignedFindings Finding[]
 }
 
 model Account {
@@ -105,6 +106,7 @@ model Project {
   organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   findings       Finding[]
   scans          Scan[]
+  apiTokens      ApiToken[]
 
   @@index([createdBy], map: "Project_createdBy_fkey")
   @@index([organizationId], map: "Project_organizationId_fkey")
@@ -121,15 +123,23 @@ model Scan {
   riskPercent      Float         @default(0) @map("risk_percent")
   languageSummary  String?       @map("language_summary") @db.Text
   frameworkSummary String?       @map("framework_summary") @db.Text
+  startedAt        DateTime?     @map("started_at")
+  completedAt      DateTime?     @map("completed_at")
+  durationMs       Int?          @map("duration_ms")
+  errorMessage     String?       @map("error_message") @db.Text
+  workerId         String?       @map("worker_id")
+  engineVersions   String?       @map("engine_versions") @db.Text
   createdAt        DateTime      @default(now()) @map("created_at")
   updatedAt        DateTime      @updatedAt @map("updated_at")
   findings         Finding[]
   project          Project?      @relation(fields: [projectId], references: [id], onDelete: Cascade)
   badges           PublicBadge[]
+  scanEvents       ScanEvent[]
 
   @@index([projectId], map: "scans_project_id_fkey")
   @@map("scans")
 }
+
 model PublicBadge {
   id        Int      @id @default(autoincrement())
   scanId    String   @map("scan_id")
@@ -139,6 +149,33 @@ model PublicBadge {
   scan      Scan     @relation(fields: [scanId], references: [id], onDelete: Cascade)
 
   @@map("public_badges")
+}
+
+model ApiToken {
+  id          String    @id @default(cuid())
+  projectId   String    @map("project_id")
+  name        String
+  tokenHash   String    @map("token_hash") @unique
+  scopes      String    @default("scan:create,scan:read,report:write")
+  isActive    String    @default("true") @map("is_active")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  lastUsedAt  DateTime? @map("last_used_at")
+  project     Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId], map: "api_tokens_project_id_fkey")
+  @@map("api_tokens")
+}
+
+model ScanEvent {
+  id        String   @id @default(uuid())
+  scanId    String   @map("scan_id")
+  eventType String   @map("event_type")
+  message   String?  @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+  scan      Scan     @relation(fields: [scanId], references: [id], onDelete: Cascade)
+
+  @@index([scanId], map: "scan_events_scan_id_fkey")
+  @@map("scan_events")
 }
 
 model Finding {
@@ -174,16 +211,20 @@ model Finding {
   secureExample      String?        @map("secure_example") @db.Text
   pentestHint        String?        @map("pentest_hint") @db.Text
   extReferences      String?        @map("ext_references") @db.Text
+  codeLink           String?        @map("code_link") @db.Text
   dedupeHash         String         @default("") @map("dedupe_hash")
   status             String         @default("open")
+  assigneeId         String?        @map("assignee_id")
   createdAt          DateTime       @default(now()) @map("created_at")
   updatedAt          DateTime       @updatedAt @map("updated_at")
   events             FindingEvent[]
   project            Project?       @relation(fields: [projectId], references: [id], onDelete: Cascade)
   scan               Scan           @relation(fields: [scanId], references: [id], onDelete: Cascade)
+  assignee           User?          @relation(fields: [assigneeId], references: [id])
 
   @@index([projectId], map: "findings_project_id_fkey")
   @@index([scanId], map: "findings_scan_id_fkey")
+  @@index([assigneeId], map: "findings_assignee_id_fkey")
   @@map("findings")
 }
 
@@ -211,4 +252,19 @@ model uploaded_assets {
   size_bytes Int
   status     String   @db.VarChar(20)
   created_at DateTime @db.DateTime(0)
+}
+
+model AuditEvent {
+  id         String   @id @default(uuid())
+  userId     String?  @map("user_id")
+  action     String
+  entityType String?  @map("entity_type")
+  entityId   String?  @map("entity_id")
+  metadata   String?  @db.Text
+  ipAddress  String?  @map("ip_address")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@index([userId], map: "audit_events_user_id_idx")
+  @@index([action], map: "audit_events_action_idx")
+  @@map("audit_events")
 }

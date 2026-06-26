@@ -41,7 +41,7 @@ function RoleBadge({ role }: { role: string }) {
   const meta = ROLE_LABELS[role] ?? ROLE_LABELS.viewer;
   const Icon = meta.icon;
   return (
-    <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold ${meta.color}`}>
+    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold border ${meta.color.replace('bg-', 'bg-opacity-10 border-').replace('text-', 'text-')}`}>
       <Icon className="w-3 h-3" />
       {meta.label}
     </span>
@@ -86,19 +86,19 @@ function InviteMemberForm({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-2 p-4 bg-slate-50 dark:bg-zinc-800/50 rounded-xl border border-slate-200 dark:border-zinc-700/50">
+    <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-2 p-4 bg-white/5 backdrop-blur-sm rounded-xl border border-white/10">
       <input
         type="email"
         value={email}
         onChange={(e) => setEmail(e.target.value)}
         placeholder="member@example.com"
         required
-        className="flex-1 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand/50 text-slate-900 dark:text-zinc-100 placeholder:text-slate-400 dark:placeholder:text-zinc-500"
+        className="flex-1 bg-[#05090b] border border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#00c9e8] focus:ring-1 focus:ring-[#00c9e8]/50 text-white placeholder:text-slate-500"
       />
       <select
         value={role}
         onChange={(e) => setRole(e.target.value)}
-        className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand/50 text-slate-900 dark:text-zinc-100"
+        className="bg-[#05090b] border border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#00c9e8] focus:ring-1 focus:ring-[#00c9e8]/50 text-white"
       >
         <option value="admin">Admin</option>
         <option value="member">Member</option>
@@ -107,13 +107,13 @@ function InviteMemberForm({
       <button
         type="submit"
         disabled={loading}
-        className="flex items-center space-x-1.5 bg-brand hover:opacity-90 disabled:opacity-50 text-white px-4 py-2 rounded-lg text-sm font-medium transition-all"
+        className="flex items-center space-x-1.5 bg-gradient-to-b from-[#21dcf8] to-[#0797b9] hover:opacity-90 disabled:opacity-50 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-[0_0_15px_rgba(0,207,234,0.3)] transition-all"
       >
         {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
         <span>Add</span>
       </button>
-      {error && <p className="text-xs text-red-500 mt-1 self-end">{error}</p>}
-      {success && <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-1 self-end">{success}</p>}
+      {error && <p className="text-xs text-red-400 mt-1 self-end">{error}</p>}
+      {success && <p className="text-xs text-emerald-400 mt-1 self-end">{success}</p>}
     </form>
   );
 }
@@ -159,21 +159,21 @@ function MemberRow({
   };
 
   return (
-    <div className="flex items-center justify-between gap-4 p-4">
+    <div className="flex items-center justify-between gap-4 p-4 hover:bg-white/5 transition-colors">
       <div className="flex items-center gap-3">
-        <div className="w-9 h-9 rounded-full bg-slate-100 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 flex items-center justify-center text-sm font-bold text-slate-500 dark:text-zinc-400">
+        <div className="w-9 h-9 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-sm font-bold text-slate-400">
           {(member.user.name || member.user.email || "U").charAt(0).toUpperCase()}
         </div>
         <div>
-          <p className="font-medium text-slate-900 dark:text-white text-sm">
+          <p className="font-bold text-white text-sm">
             {member.user.name || member.user.email}
           </p>
-          <p className="text-xs text-slate-500 dark:text-zinc-500">{member.user.email}</p>
+          <p className="text-xs text-[#cfe0ea]">{member.user.email}</p>
         </div>
       </div>
 
       <div className="flex items-center gap-2">
-        {loading && <Loader2 className="w-4 h-4 animate-spin text-brand" />}
+        {loading && <Loader2 className="w-4 h-4 animate-spin text-[#00c9e8]" />}
 
         {canManage && member.role !== "owner" ? (
           <div className="relative">
@@ -188,12 +188,12 @@ function MemberRow({
             {roleMenuOpen && (
               <>
                 <div className="fixed inset-0 z-10" onClick={() => setRoleMenuOpen(false)} />
-                <div className="absolute right-0 top-full mt-1 z-20 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-xl shadow-xl overflow-hidden w-36">
+                <div className="absolute right-0 top-full mt-1 z-20 bg-[#0b1215] border border-white/10 rounded-xl shadow-xl overflow-hidden w-36">
                   {["admin", "member", "viewer"].map((r) => (
                     <button
                       key={r}
                       onClick={() => changeRole(r)}
-                      className="w-full text-left px-3 py-2 text-sm hover:bg-slate-50 dark:hover:bg-zinc-800 transition-colors text-slate-700 dark:text-zinc-200 capitalize"
+                      className="w-full text-left px-3 py-2 text-sm hover:bg-white/10 transition-colors text-white capitalize"
                     >
                       {r}
                     </button>
@@ -209,7 +209,7 @@ function MemberRow({
         {canManage && member.role !== "owner" && (
           <button
             onClick={removeMember}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
+            className="p-1.5 rounded-lg text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-colors"
             title="Remove member"
           >
             <Trash2 className="w-4 h-4" />
@@ -249,7 +249,7 @@ function CreateOrgForm({ onSuccess }: { onSuccess: () => void }) {
   return (
     <form
       onSubmit={handleSubmit}
-      className="flex gap-2 p-4 bg-brand/5 dark:bg-brand/10 rounded-xl border border-brand/20"
+      className="flex gap-2 p-4 bg-white/5 backdrop-blur-sm rounded-xl border border-[#00c9e8]/30 shadow-[0_0_15px_rgba(0,207,234,0.1)]"
     >
       <input
         type="text"
@@ -257,17 +257,17 @@ function CreateOrgForm({ onSuccess }: { onSuccess: () => void }) {
         onChange={(e) => setName(e.target.value)}
         placeholder="New organization name"
         required
-        className="flex-1 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand/50 text-slate-900 dark:text-zinc-100 placeholder:text-slate-400 dark:placeholder:text-zinc-500"
+        className="flex-1 bg-[#05090b] border border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#00c9e8] focus:ring-1 focus:ring-[#00c9e8]/50 text-white placeholder:text-slate-500"
       />
       <button
         type="submit"
         disabled={loading}
-        className="flex items-center space-x-1.5 bg-brand hover:opacity-90 disabled:opacity-50 text-white px-4 py-2 rounded-lg text-sm font-medium"
+        className="flex items-center space-x-1.5 bg-gradient-to-b from-[#21dcf8] to-[#0797b9] hover:opacity-90 disabled:opacity-50 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-[0_0_15px_rgba(0,207,234,0.3)] transition-all"
       >
         {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
         <span>Create</span>
       </button>
-      {error && <p className="text-xs text-red-500 self-end">{error}</p>}
+      {error && <p className="text-xs text-red-400 self-end">{error}</p>}
     </form>
   );
 }
@@ -313,7 +313,7 @@ export default function TeamPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-48">
-        <Loader2 className="w-8 h-8 animate-spin text-brand" />
+        <Loader2 className="w-8 h-8 animate-spin text-[#00c9e8]" />
       </div>
     );
   }
@@ -322,14 +322,14 @@ export default function TeamPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">Team</h1>
-          <p className="mt-1 text-slate-500 dark:text-zinc-400">
+          <h1 className="text-3xl font-bold tracking-tight text-white">Team</h1>
+          <p className="mt-1 text-[#cfe0ea]">
             Manage organizations, members, and roles.
           </p>
         </div>
         <button
           onClick={() => setShowCreateOrg((s) => !s)}
-          className="flex items-center space-x-2 bg-brand hover:opacity-90 text-white px-4 py-2.5 rounded-xl font-medium transition-colors shadow-sm active:scale-[0.98] text-sm"
+          className="flex items-center space-x-2 bg-gradient-to-b from-[#21dcf8] to-[#0797b9] hover:opacity-90 text-white px-4 py-2.5 rounded-xl font-bold transition-all shadow-[0_0_15px_rgba(0,207,234,0.3)] active:scale-[0.98] text-sm"
         >
           <Plus className="w-4 h-4" />
           <span>New Organization</span>
@@ -346,15 +346,15 @@ export default function TeamPage() {
       )}
 
       {orgs.length === 0 ? (
-        <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center shadow-sm dark:border-zinc-800/50 dark:bg-zinc-900/30">
-          <Users className="mx-auto mb-3 h-10 w-10 text-slate-300 dark:text-zinc-600" />
-          <h2 className="text-lg font-semibold text-slate-900 dark:text-white">No organization yet</h2>
-          <p className="mt-2 text-sm text-slate-500 dark:text-zinc-400 max-w-sm mx-auto">
+        <div className="rounded-2xl border border-white/10 bg-[#0b1215]/80 backdrop-blur-xl p-12 text-center shadow-[0_14px_42px_rgba(0,0,0,0.16)]">
+          <Users className="mx-auto mb-3 h-10 w-10 text-slate-500" />
+          <h2 className="text-lg font-bold text-white">No organization yet</h2>
+          <p className="mt-2 text-sm text-[#cfe0ea] max-w-sm mx-auto">
             Create an organization to collaborate with your team and manage project access centrally.
           </p>
           <button
             onClick={() => setShowCreateOrg(true)}
-            className="mt-4 inline-flex items-center space-x-2 bg-brand hover:opacity-90 text-white px-4 py-2.5 rounded-xl font-medium text-sm"
+            className="mt-6 inline-flex items-center space-x-2 bg-gradient-to-b from-[#21dcf8] to-[#0797b9] hover:opacity-90 text-white px-4 py-2.5 rounded-xl font-bold text-sm shadow-[0_0_15px_rgba(0,207,234,0.3)]"
           >
             <Building2 className="w-4 h-4" />
             <span>Create Organization</span>
@@ -365,17 +365,17 @@ export default function TeamPage() {
           {orgs.map((org) => (
             <section
               key={org.id}
-              className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-zinc-800/50 dark:bg-zinc-900/40"
+              className="overflow-hidden rounded-2xl border border-white/10 bg-[#0b1215]/80 backdrop-blur-xl shadow-[0_14px_42px_rgba(0,0,0,0.16)]"
             >
               {/* Org header */}
-              <div className="border-b border-slate-100 dark:border-zinc-800/50 p-5 flex items-center justify-between">
+              <div className="border-b border-white/5 p-5 flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-brand/10 flex items-center justify-center">
-                    <Building2 className="w-5 h-5 text-brand" />
+                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#073144] to-[#0a839b] shadow-[0_0_15px_rgba(0,196,224,0.2)] flex items-center justify-center">
+                    <Building2 className="w-5 h-5 text-white" />
                   </div>
                   <div>
-                    <h2 className="text-lg font-bold text-slate-900 dark:text-white">{org.name}</h2>
-                    <p className="text-sm text-slate-500 dark:text-zinc-400">
+                    <h2 className="text-lg font-bold text-white">{org.name}</h2>
+                    <p className="text-sm text-[#cfe0ea]">
                       /{org.slug} · {org.members.length} member{org.members.length !== 1 ? "s" : ""} · {org.plan}
                     </p>
                   </div>
@@ -385,8 +385,8 @@ export default function TeamPage() {
 
               {/* Invite form (only for owner/admin) */}
               {canManageOrg(org) && (
-                <div className="p-4 border-b border-slate-100 dark:border-zinc-800/50">
-                  <p className="text-xs font-semibold text-slate-400 dark:text-zinc-500 uppercase tracking-wider mb-2">
+                <div className="p-4 border-b border-white/5 bg-white/[0.02]">
+                  <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
                     Invite Member
                   </p>
                   <InviteMemberForm orgId={org.id} onSuccess={fetchOrgs} />
@@ -394,7 +394,7 @@ export default function TeamPage() {
               )}
 
               {/* Members list */}
-              <div className="divide-y divide-slate-100 dark:divide-zinc-800/50">
+              <div className="divide-y divide-white/5">
                 {org.members.map((member) => (
                   <MemberRow
                     key={member.id}

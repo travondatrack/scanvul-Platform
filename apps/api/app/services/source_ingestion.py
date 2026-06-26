@@ -6,11 +6,17 @@ import subprocess
 import tarfile
 import tempfile
 import zipfile
+import urllib.parse
+import socket
+import ipaddress
 from pathlib import Path
 
 from app.core.config import settings
 from app.models.scan import UploadedAsset
 from app.services.storage import download_object
+
+MAX_EXTRACT_SIZE = 500 * 1024 * 1024  # 500 MB
+MAX_FILES = 20000
 
 
 # ─── Whitelist helper ────────────────────────────────────────────────────────
@@ -21,32 +27,65 @@ def _allowed_prefixes() -> list[str]:
 
 
 def validate_repo_url(url: str) -> None:
-    """Raise ValueError if the URL is not in the allowed prefix whitelist."""
+    """Raise ValueError if the URL is not valid or vulnerable to SSRF."""
+    parsed = urllib.parse.urlparse(url)
+    if parsed.scheme != "https":
+        raise ValueError("Repo URL must use HTTPS scheme")
+    
+    if not parsed.hostname:
+        raise ValueError("Invalid Repo URL hostname")
+        
+    try:
+        ip = socket.gethostbyname(parsed.hostname)
+        ip_obj = ipaddress.ip_address(ip)
+        if ip_obj.is_private or ip_obj.is_loopback or ip_obj.is_multicast or ip_obj.is_reserved:
+            raise ValueError("Repo URL resolves to a private or internal IP address (SSRF protection)")
+    except socket.gaierror:
+        raise ValueError("Repo URL hostname could not be resolved")
+        
     if not any(url.startswith(prefix) for prefix in _allowed_prefixes()):
         allowed = ", ".join(_allowed_prefixes())
-        raise ValueError(
-            f"Repo URL must start with one of: {allowed}"
-        )
+        raise ValueError(f"Repo URL must start with one of: {allowed}")
 
 
 # ─── Extraction helpers ──────────────────────────────────────────────────────
 
 def _safe_extract_zip(archive_path: Path, destination: Path) -> None:
+    extracted_size = 0
+    extracted_count = 0
     with zipfile.ZipFile(archive_path) as zf:
         for member in zf.infolist():
             target = destination / member.filename
             if not str(target.resolve()).startswith(str(destination.resolve())):
                 raise ValueError("Unsafe archive path detected (zip path traversal)")
-        zf.extractall(destination)
+            
+            extracted_size += member.file_size
+            extracted_count += 1
+            if extracted_size > MAX_EXTRACT_SIZE:
+                raise ValueError("Archive exceeds maximum extraction size limit")
+            if extracted_count > MAX_FILES:
+                raise ValueError("Archive exceeds maximum file count limit")
+                
+            zf.extract(member, destination)
 
 
 def _safe_extract_tar(archive_path: Path, destination: Path) -> None:
+    extracted_size = 0
+    extracted_count = 0
     with tarfile.open(archive_path) as tf:
         for member in tf.getmembers():
             target = destination / member.name
             if not str(target.resolve()).startswith(str(destination.resolve())):
                 raise ValueError("Unsafe archive path detected (tar path traversal)")
-        tf.extractall(destination)
+                
+            extracted_size += member.size
+            extracted_count += 1
+            if extracted_size > MAX_EXTRACT_SIZE:
+                raise ValueError("Archive exceeds maximum extraction size limit")
+            if extracted_count > MAX_FILES:
+                raise ValueError("Archive exceeds maximum file count limit")
+                
+            tf.extract(member, destination)
 
 
 def _clone_public_repo(repo_url: str, destination: Path) -> None:

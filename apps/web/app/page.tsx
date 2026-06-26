@@ -95,6 +95,17 @@ export default function LandingPage() {
               <ArrowRight className="h-6 w-6" strokeWidth={2.4} />
             </Link>
           </div>
+          
+          <div className="hidden lg:block w-full max-w-[650px] relative mt-16 [perspective:1000px]">
+            <div className="absolute inset-0 bg-gradient-to-r from-[#00c9e8] to-[#9d4edd] blur-[100px] opacity-20 transform -translate-y-10" />
+            <div className="relative rounded-2xl border border-white/10 bg-white/[0.02] p-2 shadow-2xl backdrop-blur-xl [transform:rotateY(-15deg)_rotateX(5deg)_scale(1.05)] hover:[transform:none] transition-transform duration-700 ease-out">
+              <img
+                src="/scanvul-mockup.png"
+                alt="ScanVul AI Dashboard"
+                className="rounded-xl shadow-[0_0_0_1px_rgba(255,255,255,0.05),0_30px_60px_-12px_rgba(0,0,0,0.5)]"
+              />
+            </div>
+          </div>
         </main>
       </div>
 

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireActiveUser } from "@/lib/session";
 import { requireProjectAccess } from "@/lib/access";
 import { BackendError, postBackend } from "@/lib/backend";
+import { logAudit } from "@/lib/audit";
 
 const VALID_SOURCE_TYPES = new Set(["repo_url", "archive", "paste"]);
 
@@ -65,6 +66,15 @@ export async function POST(req: NextRequest) {
         sourceValue: resolvedSourceValue,
         status: "queued",
       },
+    });
+
+    await logAudit({
+      userId: user.id,
+      action: "trigger_scan",
+      entityType: "Scan",
+      entityId: scan.id,
+      metadata: { projectId, sourceType: resolvedSourceType },
+      ipAddress: req.headers.get("x-forwarded-for") || undefined,
     });
 
     // ── Trigger FastAPI worker ──────────────────────────────────────────────
