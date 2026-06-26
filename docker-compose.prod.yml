@@ -94,6 +94,24 @@ services:
       api:
         condition: service_started
 
+  web:
+    build: 
+      context: ./apps/web
+      dockerfile: Dockerfile
+    restart: always
+    environment:
+      - DATABASE_URL=mysql://root:root@db:3306/scanvul
+      - NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
+      - NEXTAUTH_URL=http://localhost:3000
+      - NEXTAUTH_SECRET=super_secret_production_key_123
+    ports:
+      - "3000:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+      api:
+        condition: service_started
+
 volumes:
   mysql_data:
   redis_data:

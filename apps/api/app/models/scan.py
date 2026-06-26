@@ -104,21 +104,6 @@ class Finding(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     scan: Mapped[Scan] = relationship(back_populates="findings")
-    finding_events: Mapped[list["FindingEvent"]] = relationship(back_populates="finding", cascade="all,delete-orphan")
-
-class FindingEvent(Base):
-    __tablename__ = "finding_events"
-
-    id: Mapped[str] = mapped_column(String(191), primary_key=True, default=lambda: str(uuid4()))
-    finding_id: Mapped[str] = mapped_column(String(191), ForeignKey("findings.id", ondelete="CASCADE"), nullable=False)
-    user_id: Mapped[str] = mapped_column(String(191), nullable=True)
-    event_type: Mapped[str] = mapped_column(String(50), nullable=False)
-    old_value: Mapped[str] = mapped_column(Text, nullable=True)
-    new_value: Mapped[str] = mapped_column(Text, nullable=True)
-    comment: Mapped[str] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-
-    finding: Mapped[Finding] = relationship(back_populates="finding_events")
 
 
 class UploadedAsset(Base):

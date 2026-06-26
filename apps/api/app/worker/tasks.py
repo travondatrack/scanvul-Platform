@@ -11,7 +11,7 @@ from sqlalchemy.exc import OperationalError, IntegrityError
 
 from app.core.config import settings
 from app.db.session import SessionLocal
-from app.models.scan import Finding, Scan, ScanEvent, UploadedAsset, FindingEvent
+from app.models.scan import Finding, Scan, ScanEvent, UploadedAsset
 from app.services.source_ingestion import cleanup_source, ingest_source
 from app.services.scanner_orchestrator import run_hybrid_scan
 from app.worker.celery_app import celery_app
@@ -197,22 +197,6 @@ def execute_scan(scan_id: str) -> str:
                 
             db.add_all(db_findings)
             db.flush()
-            
-            # Create events for reopened findings
-            if events_to_create:
-                # map dedupe_hash to newly inserted finding IDs
-                hash_to_id = {f.dedupe_hash: f.id for f in db_findings}
-                for ev in events_to_create:
-                    fid = hash_to_id.get(ev["dedupe_hash"])
-                    if fid:
-                        db.add(FindingEvent(
-                            finding_id=fid,
-                            event_type="status_changed",
-                            old_value=ev["old"],
-                            new_value=ev["new"],
-                            comment="Finding was previously marked as fixed but was detected again."
-                        ))
-                db.flush()
 
         end_time = datetime.utcnow()
         duration_ms = int((end_time - start_time).total_seconds() * 1000)

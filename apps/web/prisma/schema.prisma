@@ -22,7 +22,7 @@ model User {
   memberships      OrganizationMember[]
   projects         Project[]
   sessions         Session[]
-  findingEvents    FindingEvent[]
+
   assignedFindings Finding[]
 }
 
@@ -217,7 +217,7 @@ model Finding {
   assigneeId         String?        @map("assignee_id")
   createdAt          DateTime       @default(now()) @map("created_at")
   updatedAt          DateTime       @updatedAt @map("updated_at")
-  events             FindingEvent[]
+
   project            Project?       @relation(fields: [projectId], references: [id], onDelete: Cascade)
   scan               Scan           @relation(fields: [scanId], references: [id], onDelete: Cascade)
   assignee           User?          @relation(fields: [assigneeId], references: [id])
@@ -228,22 +228,6 @@ model Finding {
   @@map("findings")
 }
 
-model FindingEvent {
-  id        String   @id @default(uuid())
-  findingId String   @map("finding_id")
-  userId    String?  @map("user_id")
-  eventType String   @map("event_type")
-  oldValue  String?  @map("old_value") @db.Text
-  newValue  String?  @map("new_value") @db.Text
-  comment   String?  @db.Text
-  createdAt DateTime @default(now()) @map("created_at")
-  finding   Finding  @relation(fields: [findingId], references: [id], onDelete: Cascade)
-  user      User?    @relation(fields: [userId], references: [id])
-
-  @@index([findingId], map: "finding_events_finding_id_fkey")
-  @@index([userId], map: "finding_events_user_id_fkey")
-  @@map("finding_events")
-}
 
 model uploaded_assets {
   id         String   @id @db.VarChar(36)
