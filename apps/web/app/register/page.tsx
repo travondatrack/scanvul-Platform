@@ -1,7 +1,7 @@
 "use client";
 
 import { signIn } from "next-auth/react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
@@ -11,8 +11,22 @@ export default function RegisterPage() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [otp, setOtp] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [isResending, setIsResending] = useState(false);
+  const [requiresVerification, setRequiresVerification] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(0);
+
+  useEffect(() => {
+    if (resendCooldown <= 0) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => setResendCooldown((value) => value - 1), 1000);
+    return () => window.clearTimeout(timer);
+  }, [resendCooldown]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,7 +46,36 @@ export default function RegisterPage() {
         throw new Error(data.error || "Something went wrong");
       }
 
-      // Automatically sign in after successful registration
+      setRequiresVerification(Boolean(data.requiresVerification));
+      setResendCooldown(60);
+    } catch (err: any) {
+      if (err.message === "Email already registered but not verified") {
+        setRequiresVerification(true);
+      }
+
+      setError(err.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleVerify = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsVerifying(true);
+    setError("");
+
+    try {
+      const res = await fetch("/api/auth/verify-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, otp }),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || "Could not verify email");
+      }
+
       const signInResult = await signIn("credentials", {
         redirect: false,
         email,
@@ -40,14 +83,38 @@ export default function RegisterPage() {
       });
 
       if (signInResult?.error) {
-        throw new Error("Failed to auto-login after registration");
+        throw new Error("Email verified. Please sign in with your password.");
       }
 
       router.push("/projects");
     } catch (err: any) {
       setError(err.message);
     } finally {
-      setIsLoading(false);
+      setIsVerifying(false);
+    }
+  };
+
+  const handleResend = async () => {
+    setIsResending(true);
+    setError("");
+
+    try {
+      const res = await fetch("/api/auth/resend-verification", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || "Could not resend verification code");
+      }
+
+      setResendCooldown(60);
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setIsResending(false);
     }
   };
 
@@ -70,61 +137,101 @@ export default function RegisterPage() {
           </div>
 
           <div className="text-center space-y-2">
-            <h2 className="text-2xl font-bold tracking-tight text-white">Create an account</h2>
-            <p className="text-sm text-[#cfe0ea]">Start securing your code today</p>
+            <h2 className="text-2xl font-bold tracking-tight text-white">
+              {requiresVerification ? "Verify your email" : "Create an account"}
+            </h2>
+            <p className="text-sm text-[#cfe0ea]">
+              {requiresVerification ? `Enter the 6-digit code sent to ${email}` : "Start securing your code today"}
+            </p>
           </div>
 
-          <form onSubmit={handleSubmit} className="w-full space-y-4 pt-4">
+          <form onSubmit={requiresVerification ? handleVerify : handleSubmit} className="w-full space-y-4 pt-4">
             {error && (
               <div className="bg-red-500/10 border border-red-500/20 text-red-400 text-sm p-3 rounded-xl">
                 {error}
               </div>
             )}
-            
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-slate-400 ml-1">Full Name</label>
-              <input
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="John Doe"
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-[#00c9e8] focus:ring-1 focus:ring-[#00c9e8]/50 transition-all placeholder:text-slate-500"
-                required
-              />
-            </div>
 
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-slate-400 ml-1">Email</label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="john@example.com"
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-[#00c9e8] focus:ring-1 focus:ring-[#00c9e8]/50 transition-all placeholder:text-slate-500"
-                required
-              />
-            </div>
+            {requiresVerification ? (
+              <div className="space-y-4">
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-slate-400 ml-1">Verification Code</label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={otp}
+                    onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                    placeholder="123456"
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-center text-lg tracking-[0.35em] text-white focus:outline-none focus:border-[#00c9e8] focus:ring-1 focus:ring-[#00c9e8]/50 transition-all placeholder:text-slate-500"
+                    required
+                    minLength={6}
+                    maxLength={6}
+                  />
+                </div>
 
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-slate-400 ml-1">Password</label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-[#00c9e8] focus:ring-1 focus:ring-[#00c9e8]/50 transition-all placeholder:text-slate-500"
-                required
-                minLength={8}
-              />
-            </div>
+                <button
+                  type="button"
+                  onClick={handleResend}
+                  disabled={isResending || resendCooldown > 0}
+                  className="w-full text-sm text-[#00c9e8] hover:opacity-80 font-bold disabled:opacity-50"
+                >
+                  {resendCooldown > 0
+                    ? `Resend code in ${resendCooldown}s`
+                    : isResending ? "Sending..." : "Resend verification code"}
+                </button>
+              </div>
+            ) : (
+              <>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-slate-400 ml-1">Full Name</label>
+                  <input
+                    type="text"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="John Doe"
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-[#00c9e8] focus:ring-1 focus:ring-[#00c9e8]/50 transition-all placeholder:text-slate-500"
+                    required
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-slate-400 ml-1">Email</label>
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="john@example.com"
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-[#00c9e8] focus:ring-1 focus:ring-[#00c9e8]/50 transition-all placeholder:text-slate-500"
+                    required
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-slate-400 ml-1">Password</label>
+                  <input
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="••••••••"
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-[#00c9e8] focus:ring-1 focus:ring-[#00c9e8]/50 transition-all placeholder:text-slate-500"
+                    required
+                    minLength={8}
+                  />
+                </div>
+              </>
+            )}
 
             <button
               type="submit"
-              disabled={isLoading}
+              disabled={isLoading || isVerifying}
               className="w-full bg-gradient-to-b from-[#21dcf8] to-[#0797b9] hover:opacity-90 text-white py-3 rounded-xl font-bold transition-all duration-200 shadow-[0_0_22px_rgba(0,207,234,0.34)] active:scale-[0.98] disabled:opacity-50 flex items-center justify-center space-x-2 mt-2"
             >
-              {isLoading && <Loader2 className="w-4 h-4 animate-spin" />}
-              <span>{isLoading ? "Creating account..." : "Sign Up"}</span>
+              {(isLoading || isVerifying) && <Loader2 className="w-4 h-4 animate-spin" />}
+              <span>
+                {requiresVerification
+                  ? isVerifying ? "Verifying..." : "Verify Email"
+                  : isLoading ? "Creating account..." : "Sign Up"}
+              </span>
             </button>
           </form>
 

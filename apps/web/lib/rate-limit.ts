@@ -5,6 +5,8 @@ type Bucket = {
 
 const buckets = new Map<string, Bucket>();
 
+// In-memory limiter for local/single-process deployments. Use Redis or another
+// shared store before running multiple web instances.
 export function checkRateLimit(
   key: string,
   options: { limit: number; windowMs: number },

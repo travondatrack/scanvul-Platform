@@ -25,7 +25,7 @@ export default withAuth(
   {
     callbacks: {
       authorized: ({ req, token }) => {
-        const activeToken = Boolean(token) && (token as any).status !== "disabled";
+        const activeToken = Boolean(token) && (token as any).status === "active";
 
         if (protectedApiPattern.test(req.nextUrl.pathname)) {
           return activeToken;

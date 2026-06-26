@@ -11,7 +11,9 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [needsVerification, setNeedsVerification] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isResending, setIsResending] = useState(false);
   const [googleAuthEnabled, setGoogleAuthEnabled] = useState(false);
 
   useEffect(() => {
@@ -24,6 +26,7 @@ export default function LoginPage() {
     e.preventDefault();
     setIsLoading(true);
     setError("");
+    setNeedsVerification(false);
 
     const res = await signIn("credentials", {
       redirect: false,
@@ -32,10 +35,41 @@ export default function LoginPage() {
     });
 
     if (res?.error) {
-      setError("Invalid email or password");
+      if (res.error === "Email not verified") {
+        setNeedsVerification(true);
+        setError("Verify your email before signing in. You can resend the verification code below.");
+      } else if (res.error === "Too many login attempts") {
+        setError("Too many login attempts. Try again later.");
+      } else {
+        setError("Invalid email or password");
+      }
       setIsLoading(false);
     } else {
       router.push("/projects");
+    }
+  };
+
+  const handleResendVerification = async () => {
+    setIsResending(true);
+    setError("");
+
+    try {
+      const res = await fetch("/api/auth/resend-verification", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || "Could not resend verification code");
+      }
+
+      setError("Verification code sent. Check your email.");
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setIsResending(false);
     }
   };
 
@@ -64,8 +98,18 @@ export default function LoginPage() {
 
           <form onSubmit={handleSubmit} className="w-full space-y-4 pt-4">
             {error && (
-              <div className="bg-red-500/10 border border-red-500/20 text-red-400 text-sm p-3 rounded-xl">
+              <div className="bg-red-500/10 border border-red-500/20 text-red-400 text-sm p-3 rounded-xl space-y-3">
                 {error}
+                {needsVerification ? (
+                  <button
+                    type="button"
+                    onClick={handleResendVerification}
+                    disabled={isResending || !email}
+                    className="block text-[#00c9e8] hover:opacity-80 font-bold disabled:opacity-50"
+                  >
+                    {isResending ? "Sending..." : "Resend verification code"}
+                  </button>
+                ) : null}
               </div>
             )}
             

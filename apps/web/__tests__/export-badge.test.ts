@@ -1,6 +1,4 @@
 import { NextRequest } from "next/server";
-import { GET as getReport } from "@/app/api/reports/[scanId]/route";
-import { GET as getBadge } from "@/app/api/public/badge/[token]/route";
 import { jest } from "@jest/globals";
 import { maskSecret } from "@/lib/exporters/utils";
 
@@ -25,6 +23,9 @@ let mockRequireScanAccess = jest.fn().mockResolvedValue(true);
 jest.mock("@/lib/access", () => ({
   requireScanAccess: (...args: any[]) => mockRequireScanAccess(...args),
 }));
+
+import { GET as getReport } from "@/app/api/reports/[scanId]/route";
+import { GET as getBadge } from "@/app/api/public/badge/[token]/route";
 
 describe("Export & Badge API Tests", () => {
   beforeEach(() => {

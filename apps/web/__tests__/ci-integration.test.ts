@@ -1,7 +1,4 @@
 import { NextRequest } from "next/server";
-import { POST as triggerCiScan } from "@/app/api/ci/scan/route";
-import { GET as getCiStatus } from "@/app/api/ci/scan/[id]/status/route";
-import { POST as createToken } from "@/app/api/projects/[id]/tokens/route";
 import { jest } from "@jest/globals";
 import crypto from "crypto";
 
@@ -33,6 +30,10 @@ let mockCanManageProject = jest.fn().mockResolvedValue(true);
 jest.mock("@/lib/access", () => ({
   canManageProject: (...args: any[]) => mockCanManageProject(...args),
 }));
+
+import { POST as triggerCiScan } from "@/app/api/ci/scan/route";
+import { GET as getCiStatus } from "@/app/api/ci/scan/[id]/status/route";
+import { POST as createToken } from "@/app/api/projects/[id]/tokens/route";
 
 describe("CI/CD Integration API Tests", () => {
   beforeEach(() => {

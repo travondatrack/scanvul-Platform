@@ -10,7 +10,8 @@ The current project is split into:
 
 ## Main Features
 
-- Email/password authentication with NextAuth
+- Email/password authentication with OTP email verification through NextAuth
+- Google OAuth login with verified Google email checks
 - Project management for GitHub repositories
 - Manual scan trigger per project
 - Scan history and report detail pages
@@ -58,15 +59,44 @@ Copy-Item .env.example .env
 Important:
 
 - `apps/web/prisma/schema.prisma` currently uses `provider = "mysql"`.
-- Set `DATABASE_URL` to a MySQL-compatible URL when running the web app with Prisma.
+- Set `DATABASE_URL` to a MySQL-compatible URL when running the web app with Prisma, for example `mysql://root:password@localhost:3306/scanvul`.
 - The FastAPI API can run with SQLite for local scanner development, but the Next.js dashboard auth/project tables use Prisma.
 - Set `LLM_API_KEY` only if you want AI triage enabled.
+- Set `NEXTAUTH_URL` to the web origin and generate a strong `NEXTAUTH_SECRET`.
+- Configure `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, and `SMTP_FROM` so registration can send OTP email.
+- Google login is enabled only when `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` are set.
+
+Google Cloud OAuth callback URLs:
+
+- Local: `http://localhost:3000/api/auth/callback/google`
+- Production: `https://YOUR_DOMAIN/api/auth/callback/google`
+
+Auth flow:
+
+1. User registers with email/password.
+2. The app hashes the password, creates an active user with `emailVerified = null`, creates a hashed 6-digit OTP, and sends it by SMTP.
+3. User submits the OTP on the register page. A valid OTP sets `emailVerified` and consumes the OTP.
+4. The UI signs in with credentials and redirects to `/projects`.
+
+OTP codes expire after 10 minutes, are stored only as hashes, and are rejected after 5 incorrect attempts.
 
 ## Local Development
 
 Install and prepare the web app:
 
 ```powershell
+cd apps/web
+npm install
+npx prisma generate
+npx prisma db push
+npm run dev
+```
+
+PowerShell local setup example:
+
+```powershell
+Copy-Item .env.example .env
+# Edit .env: set DATABASE_URL, NEXTAUTH_SECRET, SMTP_*, and optionally GOOGLE_*.
 cd apps/web
 npm install
 npx prisma generate
@@ -96,6 +126,13 @@ Frontend type check:
 ```powershell
 cd apps/web
 npx tsc --noEmit --pretty false
+```
+
+Frontend tests:
+
+```powershell
+cd apps/web
+npm test -- --runInBand
 ```
 
 Frontend build:

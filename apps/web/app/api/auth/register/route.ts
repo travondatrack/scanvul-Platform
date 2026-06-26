@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { isValidEmail, normalizeEmail, validatePassword } from "@/lib/auth-policy";
 import { checkRateLimit, rateLimitKey } from "@/lib/rate-limit";
+import { createAndSendVerificationOtp } from "@/lib/email-verification";
 
 export async function POST(req: NextRequest) {
   try {
@@ -31,12 +32,19 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: passwordError }, { status: 400 });
     }
 
-    // Check if user already exists
     const existingUser = await prisma.user.findUnique({
       where: { email },
     });
 
     if (existingUser) {
+      if (!existingUser.emailVerified) {
+        return NextResponse.json({
+          error: "Email already registered but not verified",
+          requiresVerification: true,
+          email,
+        }, { status: 409 });
+      }
+
       return NextResponse.json({ error: "Email already exists" }, { status: 400 });
     }
 
@@ -47,12 +55,17 @@ export async function POST(req: NextRequest) {
         name: typeof name === "string" ? name.trim() : null,
         email,
         password: hashedPassword,
+        emailVerified: null,
+        roleGlobal: "user",
+        status: "active",
       },
     });
 
-    // Return success without password
+    await createAndSendVerificationOtp(user.id, email);
+
     return NextResponse.json({
-      message: "User registered successfully",
+      message: "Verification code sent",
+      requiresVerification: true,
       user: {
         id: user.id,
         email: user.email,

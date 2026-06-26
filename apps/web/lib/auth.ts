@@ -8,7 +8,7 @@ import bcrypt from "bcryptjs";
 import { isValidEmail, normalizeEmail } from "@/lib/auth-policy";
 import { checkRateLimit, rateLimitKey } from "@/lib/rate-limit";
 
-const googleEnabled = Boolean(
+export const isGoogleAuthEnabled = Boolean(
   process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET,
 );
 
@@ -54,6 +54,10 @@ const providers: NextAuthOptions["providers"] = [
         throw new Error("Invalid credentials");
       }
 
+      if (!user.emailVerified) {
+        throw new Error("Email not verified");
+      }
+
       return {
         id: user.id,
         email: user.email,
@@ -66,11 +70,27 @@ const providers: NextAuthOptions["providers"] = [
   }),
 ];
 
-if (googleEnabled) {
+if (isGoogleAuthEnabled) {
   providers.push(
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID!,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+      allowDangerousEmailAccountLinking: true,
+      profile(profile) {
+        if (!profile.email || profile.email_verified !== true) {
+          throw new Error("Google account email must be verified");
+        }
+
+        return {
+          id: profile.sub,
+          name: profile.name,
+          email: normalizeEmail(profile.email),
+          image: profile.picture,
+          emailVerified: new Date(),
+          roleGlobal: "user",
+          status: "active",
+        };
+      },
     }),
   );
 }
@@ -82,17 +102,36 @@ export const authOptions: NextAuthOptions = {
     strategy: "jwt",
   },
   callbacks: {
-    async signIn({ user }) {
+    async signIn({ user, account, profile }) {
       if (!user.email) {
         return false;
       }
 
+      const email = normalizeEmail(user.email);
+
+      if (account?.provider === "google") {
+        if (!profile || !("email_verified" in profile) || (profile as any).email_verified !== true) {
+          return false;
+        }
+
+        const dbUser = await prisma.user.findUnique({
+          where: { email },
+          select: { status: true, emailVerified: true },
+        });
+
+        if (!dbUser) {
+          return true;
+        }
+
+        return dbUser.status === "active" && Boolean(dbUser.emailVerified);
+      }
+
       const dbUser = await prisma.user.findUnique({
-        where: { email: normalizeEmail(user.email) },
+        where: { email },
         select: { status: true },
       });
 
-      return dbUser?.status !== "disabled";
+      return dbUser?.status === "active";
     },
     async jwt({ token, user }) {
       if (user) {
@@ -124,6 +163,23 @@ export const authOptions: NextAuthOptions = {
         (session.user as any).status = token.status ?? "active";
       }
       return session;
+    },
+  },
+  events: {
+    async createUser({ user }) {
+      if (!user.email) {
+        return;
+      }
+
+      await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          email: normalizeEmail(user.email),
+          emailVerified: (user as any).emailVerified ?? new Date(),
+          roleGlobal: "user",
+          status: "active",
+        },
+      });
     },
   },
 };

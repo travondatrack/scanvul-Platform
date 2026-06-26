@@ -1,5 +1,4 @@
 import { NextRequest } from "next/server";
-import { PATCH } from "@/app/api/findings/[id]/status/route";
 import { jest } from "@jest/globals";
 
 // Mock prisma and session
@@ -23,6 +22,8 @@ jest.mock("@/lib/session", () => ({
 jest.mock("@/lib/access", () => ({
   canManageFinding: jest.fn().mockResolvedValue(true),
 }));
+
+import { PATCH } from "@/app/api/findings/[id]/status/route";
 
 describe("PATCH /api/findings/[id]/status", () => {
   beforeEach(() => {
