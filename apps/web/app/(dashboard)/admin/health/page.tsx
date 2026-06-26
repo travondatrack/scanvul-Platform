@@ -1,6 +1,6 @@
 import { requireActiveUser } from "@/lib/session";
 import { notFound } from "next/navigation";
-import { fetchBackend } from "@/lib/backend";
+import { getBackend } from "@/lib/backend";
 import { Activity, CheckCircle, XCircle, Server, Database, ShieldCheck } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 
@@ -13,7 +13,7 @@ export default async function AdminHealthPage() {
   let health: any = null;
   let backendUp = false;
   try {
-    health = await fetchBackend("health/engines");
+    health = await getBackend("health/engines");
     backendUp = true;
   } catch (e) {
     backendUp = false;
