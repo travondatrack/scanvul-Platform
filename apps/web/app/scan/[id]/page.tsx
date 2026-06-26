@@ -1,4 +1,6 @@
 import { prisma } from "@/lib/prisma";
+import { requireScanAccess } from "@/lib/access";
+import { requireActiveUser } from "@/lib/session";
 import { FindingsPanel } from "@/components/ui/findings-panel";
 import {
   Activity,
@@ -12,7 +14,13 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 export default async function ScanResultPage({ params }: { params: Promise<{ id: string }> }) {
+  const user = await requireActiveUser();
   const resolvedParams = await Promise.resolve(params);
+  try {
+    await requireScanAccess(user.id, resolvedParams.id, "view");
+  } catch {
+    notFound();
+  }
 
   const scan = await prisma.scan.findUnique({
     where: { id: resolvedParams.id },

@@ -1,20 +1,14 @@
 import { prisma } from "@/lib/prisma";
-import { getServerSession } from "next-auth/next";
-import { authOptions } from "../../../lib/auth";
+import { accessibleScanWhere } from "@/lib/access";
+import { requireActiveUser } from "@/lib/session";
 import { ShieldCheck, AlertTriangle, RefreshCw, FileText, ChevronRight, Search, Filter, ShieldAlert, ArrowRight, Download } from "lucide-react";
 import Link from "next/link";
 
 export default async function ReportsPage() {
-  const session = await getServerSession(authOptions);
-  
-  if (!session || !(session.user as any).id) {
-    return <div>Unauthorized</div>;
-  }
-
-  const userId = (session.user as any).id;
+  const user = await requireActiveUser();
 
   const scans = await prisma.scan.findMany({
-    where: { project: { createdBy: userId } },
+    where: user.roleGlobal === "admin" ? undefined : accessibleScanWhere(user.id, "view"),
     include: {
       project: true,
       findings: {

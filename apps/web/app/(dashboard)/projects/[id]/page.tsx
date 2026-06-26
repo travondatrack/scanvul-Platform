@@ -1,23 +1,23 @@
 import { prisma } from "@/lib/prisma";
-import { getServerSession } from "next-auth/next";
-import { authOptions } from "../../../../lib/auth";
+import { accessibleProjectWhere, canTriggerScan } from "@/lib/access";
+import { requireActiveUser } from "@/lib/session";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ShieldCheck, RefreshCw, AlertTriangle, Clock, FolderKanban } from "lucide-react";
 import TriggerScanButton from "../../../../components/TriggerScanButton"; // We'll create this component next
 
 export default async function ProjectDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const session = await getServerSession(authOptions);
-  
-  if (!session || !(session.user as any).id) {
-    return <div>Unauthorized</div>;
-  }
+  const user = await requireActiveUser();
 
   const resolvedParams = await Promise.resolve(params);
 
-  const project = await prisma.project.findUnique({
-    where: { id: resolvedParams.id },
+  const project = await prisma.project.findFirst({
+    where: {
+      id: resolvedParams.id,
+      ...(user.roleGlobal === "admin" ? {} : accessibleProjectWhere(user.id, "view")),
+    },
     include: {
+      organization: { select: { id: true, name: true, slug: true } },
       scans: {
         orderBy: { createdAt: "desc" }
       }
@@ -28,6 +28,8 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
     notFound();
   }
 
+  const canTrigger = await canTriggerScan(user.id, project.id);
+
   return (
     <div className="space-y-6 max-w-6xl mx-auto">
       <div className="flex items-center justify-between">
@@ -36,9 +38,13 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
           <p className="text-slate-500 dark:text-zinc-400 mt-1 flex items-center space-x-2">
             <FolderKanban className="w-4 h-4" />
             <span>{project.repoUrl || "No Repository linked"}</span>
+            <span>·</span>
+            <span>{project.organization?.name ?? "Personal project"}</span>
           </p>
         </div>
-        <TriggerScanButton projectId={project.id} repoUrl={project.repoUrl || ""} />
+        {canTrigger ? (
+          <TriggerScanButton projectId={project.id} repoUrl={project.repoUrl || ""} />
+        ) : null}
       </div>
 
       <div className="bg-white dark:bg-zinc-900/50 border border-slate-200 dark:border-zinc-800/50 dark:backdrop-blur-xl rounded-2xl p-6 shadow-sm dark:shadow-xl">

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireActiveUser } from "@/lib/session";
+import { canManageFinding } from "@/lib/access";
 
 const ALLOWED_STATUSES = new Set([
   "open",
@@ -14,7 +15,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   try {
     const user = await requireActiveUser();
     const body = await req.json();
-    const { status } = body;
+    const { status, comment } = body;
 
     if (typeof status !== "string" || !ALLOWED_STATUSES.has(status)) {
       return NextResponse.json({ error: "Invalid finding status" }, { status: 400 });
@@ -23,18 +24,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const resolvedParams = await Promise.resolve(params);
     const existing = await prisma.finding.findFirst({
       where: { id: resolvedParams.id },
-      include: {
-        scan: {
-          include: {
-            project: {
-              select: { createdBy: true },
-            },
-          },
-        },
-      },
+      select: { id: true, status: true },
     });
 
-    if (!existing || existing.scan.project?.createdBy !== user.id) {
+    if (!existing || !(await canManageFinding(user.id, resolvedParams.id))) {
       return NextResponse.json({ error: "Finding not found" }, { status: 404 });
     }
 
@@ -52,6 +45,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
             eventType: "status_changed",
             oldValue: existing.status,
             newValue: status,
+            comment: typeof comment === "string" ? comment.trim() || null : null,
           },
         });
       }

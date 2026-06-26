@@ -1,27 +1,25 @@
 import { prisma } from "@/lib/prisma";
-import { getServerSession } from "next-auth/next";
-import { authOptions } from "../../../lib/auth";
+import { accessibleProjectWhere, accessibleScanWhere } from "@/lib/access";
+import { requireActiveUser } from "@/lib/session";
 import { LayoutDashboard, FolderKanban, ShieldAlert, Activity, AlertTriangle, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 
 export default async function DashboardOverviewPage() {
-  const session = await getServerSession(authOptions);
-  
-  if (!session || !(session.user as any).id) {
-    return <div>Unauthorized</div>;
-  }
-
-  const userId = (session.user as any).id;
+  const user = await requireActiveUser();
 
   // Fetch aggregate stats
-  const totalProjects = await prisma.project.count({ where: { createdBy: userId } });
+  const totalProjects = await prisma.project.count({
+    where: user.roleGlobal === "admin" ? undefined : accessibleProjectWhere(user.id, "view"),
+  });
   
   const totalScans = await prisma.scan.count({
-    where: { project: { createdBy: userId } }
+    where: user.roleGlobal === "admin" ? undefined : accessibleScanWhere(user.id, "view"),
   });
 
   const findings = await prisma.finding.findMany({
-    where: { scan: { project: { createdBy: userId } } },
+    where: {
+      scan: user.roleGlobal === "admin" ? undefined : accessibleScanWhere(user.id, "view"),
+    },
     select: { severity: true, status: true }
   });
 

@@ -11,7 +11,7 @@ const intlMiddleware = createIntlMiddleware({
 });
 
 const protectedPathPattern = /^\/(dashboard|projects|scans|reports|team)(\/.*)?$/;
-const protectedApiPattern = /^\/api\/(projects|scans\/trigger|findings|v1)(\/.*)?$/;
+const protectedApiPattern = /^\/api\/(projects|organizations|scan|scans\/trigger|findings|v1)(\/.*)?$/;
 const localePathPattern = new RegExp(`^/(${locales.join("|")})(/.*)?$`);
 
 export default withAuth(

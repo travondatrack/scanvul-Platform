@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireActiveUser } from "@/lib/session";
+import { requireProjectAccess } from "@/lib/access";
 
 const BACKEND_BASE = process.env.BACKEND_API_BASE_URL
   ?? process.env.NEXT_PUBLIC_API_BASE_URL
@@ -16,12 +17,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Project ID and Repo URL are required" }, { status: 400 });
     }
 
-    // Ensure the project belongs to the user
     const project = await prisma.project.findUnique({
       where: { id: projectId }
     });
 
-    if (!project || project.createdBy !== user.id) {
+    if (!project) {
+      return NextResponse.json({ error: "Project not found or access denied" }, { status: 404 });
+    }
+
+    try {
+      await requireProjectAccess(user.id, projectId, "trigger_scan");
+    } catch {
       return NextResponse.json({ error: "Project not found or access denied" }, { status: 404 });
     }
 

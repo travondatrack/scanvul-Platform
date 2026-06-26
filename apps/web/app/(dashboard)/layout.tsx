@@ -4,8 +4,9 @@ import { useSession, signOut } from "next-auth/react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import { LayoutDashboard, FolderKanban, FileText, Settings, ShieldAlert, LogOut, Loader2 } from "lucide-react";
+import { LayoutDashboard, FolderKanban, FileText, Settings, ShieldAlert, LogOut, Loader2, Users } from "lucide-react";
 import { ThemeToggle } from "../../components/ThemeToggle";
+import { OrgSwitcher } from "../../components/OrgSwitcher";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { data: session } = useSession();
@@ -16,6 +17,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
     { name: "Projects", href: "/projects", icon: FolderKanban },
     { name: "Scans & Reports", href: "/reports", icon: FileText },
+    { name: "Team", href: "/team", icon: Users },
     { name: "Rules & Policies", href: "/rules", icon: ShieldAlert },
     { name: "Settings", href: "/settings", icon: Settings },
   ];
@@ -31,6 +33,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <span className="text-xl font-bold text-slate-800 dark:text-white tracking-tight">
             ScanVul
           </span>
+        </div>
+
+        <div className="px-4 mt-2">
+          <OrgSwitcher />
         </div>
 
         <nav className="flex-1 px-4 space-y-1 mt-4">

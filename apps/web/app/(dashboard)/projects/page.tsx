@@ -1,17 +1,16 @@
 import { prisma } from "@/lib/prisma";
-import { getServerSession } from "next-auth/next";
-import { authOptions } from "../../../lib/auth";
+import { accessibleProjectWhere } from "@/lib/access";
+import { requireActiveUser } from "@/lib/session";
 import { Plus, FolderKanban, ShieldCheck, Clock, Github } from "lucide-react";
 import Link from "next/link";
 
 export default async function ProjectsPage() {
-  const session = await getServerSession(authOptions);
-  
-  // In a real scenario, we'd fetch projects belonging to the user's orgs
-  // For now, fetch projects created by the user
+  const user = await requireActiveUser();
+
   const projects = await prisma.project.findMany({
-    where: { createdBy: (session?.user as any)?.id },
+    where: user.roleGlobal === "admin" ? undefined : accessibleProjectWhere(user.id, "view"),
     include: {
+      organization: { select: { name: true } },
       scans: {
         orderBy: { createdAt: "desc" },
         take: 1
@@ -63,7 +62,9 @@ export default async function ProjectsPage() {
                     </div>
                     <div>
                       <h3 className="text-lg font-semibold text-slate-900 dark:text-white group-hover:text-brand transition-colors">{project.name}</h3>
-                      <p className="text-xs text-slate-500 dark:text-zinc-500">{project.visibility}</p>
+                      <p className="text-xs text-slate-500 dark:text-zinc-500">
+                        {project.organization?.name ?? "Personal"} · {project.visibility}
+                      </p>
                     </div>
                   </div>
                   <div className={`px-2 py-1 rounded-full text-xs font-medium ${project.status === "active" ? "bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : "bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400"}`}>

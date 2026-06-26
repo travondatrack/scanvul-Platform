@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Github, Loader2 } from "lucide-react";
 
@@ -10,6 +10,15 @@ export default function NewProjectPage() {
   const [githubUrl, setGithubUrl] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  const [organizationId, setOrganizationId] = useState("");
+  const [organizations, setOrganizations] = useState<Array<{ id: string; name: string; members?: Array<{ role: string }> }>>([]);
+
+  useEffect(() => {
+    fetch("/api/organizations", { cache: "no-store" })
+      .then((res) => (res.ok ? res.json() : { items: [] }))
+      .then((data) => setOrganizations(data.items ?? []))
+      .catch(() => setOrganizations([]));
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -20,7 +29,7 @@ export default function NewProjectPage() {
       const res = await fetch("/api/projects", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, githubUrl }),
+        body: JSON.stringify({ name, githubUrl, organizationId: organizationId || undefined }),
       });
 
       const data = await res.json();
@@ -77,6 +86,24 @@ export default function NewProjectPage() {
               />
             </div>
             <p className="text-xs text-slate-500 dark:text-zinc-500">Currently only public repositories are supported without PAT.</p>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-slate-700 dark:text-zinc-300">Workspace</label>
+            <select
+              value={organizationId}
+              onChange={(e) => setOrganizationId(e.target.value)}
+              className="w-full bg-white dark:bg-zinc-950/50 border border-slate-300 dark:border-white/10 rounded-xl px-4 py-3 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-brand/60 focus:ring-1 focus:ring-brand/50 transition-all shadow-sm"
+            >
+              <option value="">Personal</option>
+              {organizations
+                .filter((org) => ["owner", "admin"].includes(org.members?.[0]?.role ?? ""))
+                .map((org) => (
+                  <option key={org.id} value={org.id}>
+                    {org.name}
+                  </option>
+                ))}
+            </select>
           </div>
 
           <div className="pt-4 flex items-center justify-end space-x-4">

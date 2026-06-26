@@ -7,9 +7,13 @@ import { BadgePublisher } from "@/components/ui/badge-publisher";
 import { CompareWidget } from "@/components/ui/compare-widget";
 import { FindingsPanel } from "@/components/ui/findings-panel";
 import { ScanProgress } from "@/components/ui/scan-progress";
+import { requireScanAccess } from "@/lib/access";
+import { requireActiveUser } from "@/lib/session";
 import { cn } from "@/lib/utils";
 
-const API_BASE = process.env.BACKEND_API_BASE_URL ?? "http://localhost:8001";
+const API_BASE = process.env.BACKEND_API_BASE_URL
+  ?? process.env.NEXT_PUBLIC_API_BASE_URL
+  ?? "http://127.0.0.1:8000";
 
 async function getScan(scanId: string) {
   const response = await fetch(`${API_BASE}/api/v1/scans/${scanId}`, {
@@ -44,7 +48,9 @@ export default async function ScanDetailPage({
 }: {
   params: Promise<{ scanId: string; locale: string }>;
 }) {
+  const user = await requireActiveUser();
   const { scanId, locale } = await params;
+  await requireScanAccess(user.id, scanId, "view");
   const scan = await getScan(scanId);
   const heatmap = await getHeatmap(scanId);
 
