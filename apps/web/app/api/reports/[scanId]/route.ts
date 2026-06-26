@@ -96,7 +96,7 @@ export async function GET(req: NextRequest, { params }: Params) {
 
     if (format === "pdf") {
       const pdfBuffer = await generatePdfReport(scan, summary);
-      return new NextResponse(pdfBuffer, {
+      return new NextResponse(new Uint8Array(pdfBuffer), {
         headers: {
           "Content-Type": "application/pdf",
           "Content-Disposition": `attachment; filename="scan-${scanId}.pdf"`,
