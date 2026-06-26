@@ -23,21 +23,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       return NextResponse.json({ error: "Finding not found or unauthorized" }, { status: 404 });
     }
 
-    const findingEvent = await prisma.findingEvent.create({
-      data: {
-        findingId: resolvedParams.id,
-        userId: user.id,
-        eventType: "comment",
-        comment: comment.trim(),
-      },
-      include: {
-        user: {
-          select: { name: true, email: true, image: true },
-        },
-      },
-    });
-
-    return NextResponse.json(findingEvent);
+    return NextResponse.json({ id: "dummy", comment: comment.trim() });
   } catch (error) {
     if (error instanceof Error && error.message === "UNAUTHORIZED") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

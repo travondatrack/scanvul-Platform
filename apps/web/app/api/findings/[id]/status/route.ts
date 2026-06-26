@@ -61,32 +61,6 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         data: dataToUpdate,
       });
 
-      if (status && existing.status !== status) {
-        await tx.findingEvent.create({
-          data: {
-            findingId: resolvedParams.id,
-            userId: user.id,
-            eventType: "status_changed",
-            oldValue: existing.status,
-            newValue: status,
-            comment: typeof comment === "string" ? comment.trim() || null : null,
-          },
-        });
-      }
-      
-      if (verification_status && existing.verificationStatus !== verification_status) {
-        await tx.findingEvent.create({
-          data: {
-            findingId: resolvedParams.id,
-            userId: user.id,
-            eventType: "verification_status_changed",
-            oldValue: existing.verificationStatus,
-            newValue: verification_status,
-            comment: typeof comment === "string" ? comment.trim() || null : null,
-          },
-        });
-      }
-
       return updated;
     });
 

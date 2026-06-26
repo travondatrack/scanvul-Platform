@@ -22,16 +22,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
        return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
 
-    const events = await prisma.findingEvent.findMany({
-      where: { findingId: resolvedParams.id },
-      include: {
-        user: {
-          select: { name: true, email: true, image: true },
-        },
-      },
-      orderBy: { createdAt: "asc" },
-    });
-
+    const events: any[] = [];
     return NextResponse.json(events);
   } catch (error) {
     if (error instanceof Error && error.message === "UNAUTHORIZED") {

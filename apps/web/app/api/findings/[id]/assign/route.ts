@@ -33,18 +33,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         data: { assigneeId: assigneeId || null },
       });
 
-      if (existing.assigneeId !== assigneeId) {
-        await tx.findingEvent.create({
-          data: {
-            findingId: resolvedParams.id,
-            userId: user.id,
-            eventType: "assigned",
-            oldValue: existing.assigneeId,
-            newValue: assigneeId,
-          },
-        });
-      }
-
       return updated;
     });
 
