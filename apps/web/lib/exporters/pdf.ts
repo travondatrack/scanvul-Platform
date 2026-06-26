@@ -107,9 +107,9 @@ export async function generatePdfReport(scanData: any, summary: any): Promise<Bu
     try {
       const pdfDoc = printer.createPdfKitDocument(docDefinition);
       const chunks: Buffer[] = [];
-      pdfDoc.on("data", (chunk) => chunks.push(chunk));
+      pdfDoc.on("data", (chunk: Buffer) => chunks.push(chunk));
       pdfDoc.on("end", () => resolve(Buffer.concat(chunks)));
-      pdfDoc.on("error", (err) => reject(err));
+      pdfDoc.on("error", (err: Error) => reject(err));
       pdfDoc.end();
     } catch (error) {
       reject(error);
