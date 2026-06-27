@@ -54,7 +54,7 @@ services:
     env: docker
     rootDir: apps/api
     dockerfilePath: Dockerfile
-    dockerCommand: celery -A app.worker.celery_app worker --loglevel=INFO --concurrency=2
+    dockerCommand: celery -A app.worker.celery_app worker -B --loglevel=INFO --concurrency=2
     envVars:
       - key: DATABASE_URL
         sync: false
