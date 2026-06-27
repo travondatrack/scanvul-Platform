@@ -33,10 +33,11 @@ export async function createAndSendVerificationOtp(userId: string, email: string
     },
   });
 
-  // Fire-and-forget: don't block the HTTP response on SMTP
-  sendVerificationEmail({ to: email, otp }).catch((err) =>
-    console.error("[email] Failed to send verification email:", err)
-  );
+  // Await email sending so SMTP errors surface in logs (not fire-and-forget)
+  await sendVerificationEmail({ to: email, otp }).catch((err) => {
+    console.error("[email] Failed to send verification email to", email, ":", err?.message ?? err);
+    throw err; // Re-throw so register route can return 500 with clear message
+  });
 }
 
 export async function verifyEmailOtp(email: string, otp: string) {

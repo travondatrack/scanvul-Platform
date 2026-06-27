@@ -49,6 +49,10 @@ export async function sendVerificationEmail({ to, otp }: VerificationEmailInput)
       user: process.env.SMTP_USER,
       pass: process.env.SMTP_PASS,
     },
+    tls: {
+      // Required for some cloud providers that use self-signed certs
+      rejectUnauthorized: false,
+    },
   });
 
   await transporter.sendMail({
