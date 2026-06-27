@@ -1,33 +1,6 @@
 version: '3.8'
 
 services:
-  db:
-    image: mysql:8.0
-    restart: always
-    environment:
-      MYSQL_ROOT_PASSWORD: root
-      MYSQL_DATABASE: scanvul
-    ports:
-      - "3306:3306"
-    volumes:
-      - mysql_data:/var/lib/mysql
-    healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
-      timeout: 10s
-      retries: 5
-
-  redis:
-    image: redis:7-alpine
-    restart: always
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      timeout: 5s
-      retries: 5
-
   minio:
     image: minio/minio
     restart: always
@@ -51,8 +24,11 @@ services:
       dockerfile: Dockerfile
     restart: always
     environment:
-      - DATABASE_URL=mysql+pymysql://root:root@db:3306/scanvul
-      - REDIS_URL=redis://redis:6379/0
+      - DATABASE_URL=${DATABASE_URL:?DATABASE_URL is required}
+      - REDIS_URL=${UPSTASH_REDIS_URL:-}
+      - UPSTASH_REDIS_URL=${UPSTASH_REDIS_URL:-}
+      - UPSTASH_REDIS_REST_URL=${UPSTASH_REDIS_REST_URL:-}
+      - UPSTASH_REDIS_REST_TOKEN=${UPSTASH_REDIS_REST_TOKEN:-}
       - SCAN_WORKER_MODE=celery
       - STORAGE_BACKEND=s3
       - MINIO_ENDPOINT=minio:9000
@@ -62,10 +38,6 @@ services:
     ports:
       - "8000:8000"
     depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
       minio:
         condition: service_healthy
 
@@ -76,8 +48,11 @@ services:
     restart: always
     command: celery -A app.worker.celery_app worker --loglevel=info --concurrency=2
     environment:
-      - DATABASE_URL=mysql+pymysql://root:root@db:3306/scanvul
-      - REDIS_URL=redis://redis:6379/0
+      - DATABASE_URL=${DATABASE_URL:?DATABASE_URL is required}
+      - REDIS_URL=${UPSTASH_REDIS_URL:?UPSTASH_REDIS_URL is required for Celery worker}
+      - UPSTASH_REDIS_URL=${UPSTASH_REDIS_URL:?UPSTASH_REDIS_URL is required for Celery worker}
+      - UPSTASH_REDIS_REST_URL=${UPSTASH_REDIS_REST_URL:-}
+      - UPSTASH_REDIS_REST_TOKEN=${UPSTASH_REDIS_REST_TOKEN:-}
       - SCAN_WORKER_MODE=celery
       - STORAGE_BACKEND=s3
       - MINIO_ENDPOINT=minio:9000
@@ -85,10 +60,6 @@ services:
       - MINIO_SECRET_KEY=minioadminpassword
       - MINIO_BUCKET=scans
     depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
       minio:
         condition: service_healthy
       api:
@@ -100,19 +71,15 @@ services:
       dockerfile: Dockerfile
     restart: always
     environment:
-      - DATABASE_URL=mysql://root:root@db:3306/scanvul
+      - DATABASE_URL=${DATABASE_URL:?DATABASE_URL is required}
       - NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
       - NEXTAUTH_URL=http://localhost:3000
       - NEXTAUTH_SECRET=super_secret_production_key_123
     ports:
       - "3000:3000"
     depends_on:
-      db:
-        condition: service_healthy
       api:
         condition: service_started
 
 volumes:
-  mysql_data:
-  redis_data:
   minio_data:

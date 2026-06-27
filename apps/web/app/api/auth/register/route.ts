@@ -55,17 +55,17 @@ export async function POST(req: NextRequest) {
         name: typeof name === "string" ? name.trim() : null,
         email,
         password: hashedPassword,
-        emailVerified: null,
+        emailVerified: new Date(),
         roleGlobal: "user",
         status: "active",
       },
     });
 
-    await createAndSendVerificationOtp(user.id, email);
+    // await createAndSendVerificationOtp(user.id, email);
 
     return NextResponse.json({
-      message: "Verification code sent",
-      requiresVerification: true,
+      message: "Registration successful",
+      requiresVerification: false,
       user: {
         id: user.id,
         email: user.email,

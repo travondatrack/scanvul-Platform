@@ -6,8 +6,13 @@ class Settings(BaseSettings):
     api_host: str = "0.0.0.0"
     api_port: int = 8000
 
-    database_url: str = "mysql+pymysql://root:root@localhost:3306/scanvul"
-    redis_url: str = "redis://localhost:6379/0"
+    database_url: str = (
+        "mysql://avnadmin:CHANGE_ME_AIVEN_PASSWORD@"
+        "mysql-3ad09837-vlogsnqt720-e2a0.h.aivencloud.com:23011/defaultdb?ssl-mode=REQUIRED"
+    )
+    redis_url: str = ""
+    upstash_redis_rest_url: str = ""
+    upstash_redis_rest_token: str = ""
 
     scan_worker_mode: str = "thread"
     storage_backend: str = "local"

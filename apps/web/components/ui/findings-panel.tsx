@@ -1,7 +1,7 @@
 "use client";
 
-import { ChevronDown, FileCode2, ExternalLink, Search, ShieldCheck, ShieldAlert, ShieldX, HelpCircle, SkipForward } from "lucide-react";
-import { useMemo, useState } from "react";
+import { ChevronDown, FileCode2, ExternalLink, Search, ShieldCheck, ShieldAlert, ShieldX, HelpCircle, SkipForward, ChevronLeft, ChevronRight } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { FindingTimeline } from "./finding-timeline";
@@ -146,6 +146,8 @@ export function FindingsPanel({ findings }: { findings: FindingItem[] }) {
   const [expanded, setExpanded] = useState<string | null>(findings[0]?.id ?? null);
   const [activeTab, setActiveTab] = useState<Record<string, string>>({});
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
   const router = useRouter();
 
   const handleUpdateStatus = async (id: string, field: "status" | "verification_status", value: string) => {
@@ -233,6 +235,13 @@ export function FindingsPanel({ findings }: { findings: FindingItem[] }) {
         );
       });
   }, [findings, language, query, severity, sortBy, verStatus]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [language, query, severity, sortBy, verStatus]);
+
+  const totalPages = Math.ceil(filtered.length / itemsPerPage);
+  const paginated = filtered.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   return (
     <div>
@@ -330,7 +339,7 @@ export function FindingsPanel({ findings }: { findings: FindingItem[] }) {
         </div>
       ) : (
         <div className="space-y-4">
-          {filtered.map((item, index) => {
+          {paginated.map((item, index) => {
             const isOpen = expanded === item.id;
             const tab = activeTab[item.id] ?? "evidence";
             const lineRange =
@@ -407,15 +416,15 @@ export function FindingsPanel({ findings }: { findings: FindingItem[] }) {
                         ["Source", item.source || "not proven"],
                         ["Sink", item.sink || "not proven"],
                       ].map(([label, value]) => (
-                        <div key={label} className="rounded-xl bg-white/5 border border-white/5 p-3.5 shadow-inner">
+                        <div key={label} className="rounded-xl bg-slate-50 dark:bg-white/5 border border-border/50 dark:border-white/5 p-3.5 shadow-inner">
                           <p className="text-[10px] font-bold tracking-wider uppercase text-slate-500 mb-1.5">{label}</p>
-                          <p className="break-words font-mono text-xs text-slate-300">{value}</p>
+                          <p className="break-words font-mono text-xs text-slate-700 dark:text-slate-300">{value}</p>
                         </div>
                       ))}
                     </div>
 
                     {/* Tabs */}
-                    <div className="border-t border-white/10 px-5 bg-white/[0.02]">
+                    <div className="border-t border-border/50 dark:border-white/10 px-5 bg-slate-50/50 dark:bg-white/[0.02]">
                       <div className="flex gap-2 overflow-x-auto py-3">
                         {["evidence", "impact", "fix", "pentest", "triage", "references"].map((t) => (
                           <button
@@ -440,34 +449,34 @@ export function FindingsPanel({ findings }: { findings: FindingItem[] }) {
                       {tab === "evidence" && (
                         <div className="space-y-5">
                           {item.evidence && (
-                            <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 p-4 shadow-[0_0_15px_rgba(245,158,11,0.05)]">
-                              <p className="mb-2 text-xs font-bold uppercase text-amber-400">
+                            <div className="rounded-xl border border-amber-200 dark:border-amber-500/20 bg-amber-50 dark:bg-amber-500/10 p-4 shadow-sm dark:shadow-[0_0_15px_rgba(245,158,11,0.05)]">
+                              <p className="mb-2 text-xs font-bold uppercase text-amber-700 dark:text-amber-400">
                                 Evidence (redacted)
                               </p>
-                              <code className="text-xs text-amber-200">{item.evidence}</code>
+                              <code className="text-xs text-amber-900 dark:text-amber-200">{item.evidence}</code>
                             </div>
                           )}
-                          <div className="rounded-xl overflow-hidden border border-white/10">
+                          <div className="rounded-xl overflow-hidden border border-border/50 dark:border-white/10">
                             {item.codeSnippet ? (
                               <CodeSnippet code={item.codeSnippet} language={inferLanguage(item.filePath)} />
                             ) : (
-                              <div className="p-4 text-sm text-slate-500 bg-black/50 text-center">No snippet available</div>
+                              <div className="p-4 text-sm text-slate-500 bg-slate-100 dark:bg-black/50 text-center">No snippet available</div>
                             )}
                           </div>
                           <div className="grid gap-4 md:grid-cols-2">
-                            <div className="rounded-xl bg-white/5 border border-white/10 p-4">
+                            <div className="rounded-xl bg-slate-50 dark:bg-white/5 border border-border/50 dark:border-white/10 p-4">
                               <h4 className="text-xs font-bold uppercase text-brand mb-2 flex items-center gap-1.5">
                                 <HelpCircle className="w-3.5 h-3.5" /> Why vulnerable
                               </h4>
-                              <p className="text-sm text-muted-foreground leading-relaxed">
+                              <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
                                 {item.whyVulnerable || item.attackScenario}
                               </p>
                             </div>
-                            <div className="rounded-xl bg-white/5 border border-white/10 p-4">
-                              <h4 className="text-xs font-bold uppercase text-red-400 mb-2 flex items-center gap-1.5">
+                            <div className="rounded-xl bg-slate-50 dark:bg-white/5 border border-border/50 dark:border-white/10 p-4">
+                              <h4 className="text-xs font-bold uppercase text-red-600 dark:text-red-400 mb-2 flex items-center gap-1.5">
                                 <ShieldAlert className="w-3.5 h-3.5" /> Attack Scenario
                               </h4>
-                              <p className="text-sm text-muted-foreground leading-relaxed">{item.attackScenario}</p>
+                              <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">{item.attackScenario}</p>
                             </div>
                           </div>
                         </div>
@@ -476,22 +485,22 @@ export function FindingsPanel({ findings }: { findings: FindingItem[] }) {
                       {/* Impact tab */}
                       {tab === "impact" && (
                         <div className="space-y-4">
-                          <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-5 shadow-[0_0_20px_rgba(239,68,68,0.1)]">
-                            <h4 className="mb-2 text-xs font-bold uppercase text-red-400 flex items-center gap-1.5">
+                          <div className="rounded-xl border border-red-200 dark:border-red-500/30 bg-red-50 dark:bg-red-500/10 p-5 shadow-sm dark:shadow-[0_0_20px_rgba(239,68,68,0.1)]">
+                            <h4 className="mb-2 text-xs font-bold uppercase text-red-700 dark:text-red-400 flex items-center gap-1.5">
                               <ShieldAlert className="w-4 h-4" /> Security Impact
                             </h4>
-                            <p className="text-sm text-white leading-relaxed">
+                            <p className="text-sm text-slate-800 dark:text-slate-200 leading-relaxed">
                               {item.impact || item.attackScenario || "No impact description available."}
                             </p>
                           </div>
-                          <div className="rounded-xl bg-white/5 border border-white/10 p-5">
+                          <div className="rounded-xl bg-slate-50 dark:bg-white/5 border border-border/50 dark:border-white/10 p-5">
                             <h4 className="text-xs font-bold uppercase text-brand mb-2">Proof of Concept (PoC)</h4>
-                            <p className="text-sm text-muted-foreground leading-relaxed font-mono bg-muted p-3 rounded-lg border border-border">{item.poc || "Not provided."}</p>
+                            <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed font-mono bg-white dark:bg-black/20 p-3 rounded-lg border border-border/50 dark:border-white/10">{item.poc || "Not provided."}</p>
                           </div>
                           {item.owaspCategory && (
-                            <div className="rounded-xl bg-white/5 border border-white/10 p-4 inline-block">
-                              <p className="text-xs font-bold uppercase text-slate-400 mb-1">OWASP Category</p>
-                              <p className="text-sm font-bold text-white">{item.owaspCategory}</p>
+                            <div className="rounded-xl bg-slate-50 dark:bg-white/5 border border-border/50 dark:border-white/10 p-4 inline-block">
+                              <p className="text-xs font-bold uppercase text-slate-500 dark:text-slate-400 mb-1">OWASP Category</p>
+                              <p className="text-sm font-bold text-slate-800 dark:text-slate-200">{item.owaspCategory}</p>
                             </div>
                           )}
                         </div>
@@ -500,19 +509,19 @@ export function FindingsPanel({ findings }: { findings: FindingItem[] }) {
                       {/* Fix tab */}
                       {tab === "fix" && (
                         <div className="space-y-5">
-                          <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-5 shadow-[0_0_20px_rgba(16,185,129,0.1)]">
-                            <h4 className="mb-2 text-xs font-bold uppercase text-emerald-400 flex items-center gap-1.5">
+                          <div className="rounded-xl border border-emerald-200 dark:border-emerald-500/30 bg-emerald-50 dark:bg-emerald-500/10 p-5 shadow-sm dark:shadow-[0_0_20px_rgba(16,185,129,0.1)]">
+                            <h4 className="mb-2 text-xs font-bold uppercase text-emerald-700 dark:text-emerald-400 flex items-center gap-1.5">
                               <ShieldCheck className="w-4 h-4" /> Remediation
                             </h4>
-                            <p className="text-sm text-white leading-relaxed">{item.remediation}</p>
+                            <p className="text-sm text-slate-800 dark:text-slate-200 leading-relaxed">{item.remediation}</p>
                           </div>
                           {item.codeSnippet && (
                             <div>
-                              <h4 className="mb-2 text-xs font-bold uppercase text-emerald-400 ml-1">
+                              <h4 className="mb-2 text-xs font-bold uppercase text-emerald-700 dark:text-emerald-400 ml-1">
                                 Secure Example
                               </h4>
                               {/* TODO: generate secure example */}
-                              <div className="rounded-xl overflow-hidden border border-emerald-500/20">
+                              <div className="rounded-xl overflow-hidden border border-emerald-200 dark:border-emerald-500/20">
                                 <CodeSnippet code={"// Provide secure implementation here based on finding"} language={inferLanguage(item.filePath)} />
                               </div>
                             </div>
@@ -523,26 +532,26 @@ export function FindingsPanel({ findings }: { findings: FindingItem[] }) {
                       {/* Pentest Hints tab */}
                       {tab === "pentest" && (
                         <div className="space-y-4">
-                          <div className="rounded-xl border border-brand/30 bg-brand/10 p-5">
+                          <div className="rounded-xl border border-brand/20 dark:border-brand/30 bg-brand/5 dark:bg-brand/10 p-5">
                             <h4 className="mb-3 text-xs font-bold uppercase text-brand">
                               Authorised Verification Steps
                             </h4>
                             {item.pentestHint ? (
                               <ul className="space-y-2">
                                 {item.pentestHint.split("\n").filter(Boolean).map((line, i) => (
-                                  <li key={i} className="flex gap-3 text-sm text-white">
+                                  <li key={i} className="flex gap-3 text-sm text-slate-700 dark:text-slate-200">
                                     <span className="shrink-0 font-bold text-brand">-&gt;</span>
                                     <span>{line.replace(/^\d+\.\s*/, "")}</span>
                                   </li>
                                 ))}
                               </ul>
                             ) : (
-                              <p className="text-sm text-slate-400">
+                              <p className="text-sm text-slate-500 dark:text-slate-400">
                                 No pentest hints available for this finding.
                               </p>
                             )}
                           </div>
-                          <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-xs font-bold text-amber-400 flex items-center gap-2">
+                          <div className="rounded-xl border border-amber-200 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/10 p-4 text-xs font-bold text-amber-700 dark:text-amber-400 flex items-center gap-2">
                             <ShieldAlert className="w-4 h-4" />
                             Warning: Only perform verification steps in authorised environments using staging/test accounts.
                           </div>
@@ -553,8 +562,8 @@ export function FindingsPanel({ findings }: { findings: FindingItem[] }) {
                       {tab === "triage" && (
                         <div className="space-y-6">
                           <div className="grid gap-4 md:grid-cols-2">
-                            <div className="rounded-xl bg-white/5 border border-white/10 p-4">
-                              <label className="block text-xs font-bold uppercase text-slate-400 mb-2">Status</label>
+                            <div className="rounded-xl bg-slate-50 dark:bg-white/5 border border-border/50 dark:border-white/10 p-4">
+                              <label className="block text-xs font-bold uppercase text-slate-500 dark:text-slate-400 mb-2">Status</label>
                               <Select 
                                 value={item.status || "open"}
                                 onChange={(e) => handleUpdateStatus(item.id, "status", e.target.value)}
@@ -569,8 +578,8 @@ export function FindingsPanel({ findings }: { findings: FindingItem[] }) {
                                 <option value="reopened">Reopened</option>
                               </Select>
                             </div>
-                            <div className="rounded-xl bg-white/5 border border-white/10 p-4">
-                              <label className="block text-xs font-bold uppercase text-slate-400 mb-2">Verification</label>
+                            <div className="rounded-xl bg-slate-50 dark:bg-white/5 border border-border/50 dark:border-white/10 p-4">
+                              <label className="block text-xs font-bold uppercase text-slate-500 dark:text-slate-400 mb-2">Verification</label>
                               <Select 
                                 value={item.verificationStatus || "unverified"}
                                 onChange={(e) => handleUpdateStatus(item.id, "verification_status", e.target.value)}
@@ -584,8 +593,8 @@ export function FindingsPanel({ findings }: { findings: FindingItem[] }) {
                               </Select>
                             </div>
                           </div>
-                          <div className="rounded-xl bg-white/5 border border-white/10 p-5">
-                            <h4 className="text-sm font-bold text-white mb-4">Event Timeline</h4>
+                          <div className="rounded-xl bg-slate-50 dark:bg-white/5 border border-border/50 dark:border-white/10 p-5">
+                            <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200 mb-4">Event Timeline</h4>
                             <FindingTimeline findingId={item.id} />
                           </div>
                         </div>
@@ -593,8 +602,8 @@ export function FindingsPanel({ findings }: { findings: FindingItem[] }) {
 
                       {/* References tab */}
                       {tab === "references" && (
-                        <div className="rounded-xl bg-white/5 border border-white/10 p-5">
-                          <h4 className="mb-2 text-xs font-bold uppercase text-slate-400">
+                        <div className="rounded-xl bg-slate-50 dark:bg-white/5 border border-border/50 dark:border-white/10 p-5">
+                          <h4 className="mb-2 text-xs font-bold uppercase text-slate-500 dark:text-slate-400">
                             External References
                           </h4>
                           {item.references ? (
@@ -623,6 +632,30 @@ export function FindingsPanel({ findings }: { findings: FindingItem[] }) {
               </article>
             );
           })}
+
+          {totalPages > 1 && (
+            <div className="mt-6 flex items-center justify-between border-t border-border pt-4 text-sm">
+              <span className="text-muted-foreground">
+                Page <span className="font-bold text-foreground">{currentPage}</span> of {totalPages}
+              </span>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50 transition-colors"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+                <button
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50 transition-colors"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

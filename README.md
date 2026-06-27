@@ -59,7 +59,7 @@ Copy-Item .env.example .env
 Important:
 
 - `apps/web/prisma/schema.prisma` currently uses `provider = "mysql"`.
-- Set `DATABASE_URL` to a MySQL-compatible URL when running the web app with Prisma, for example `mysql://root:password@localhost:3306/scanvul`.
+- Set `DATABASE_URL` to a MySQL-compatible URL when running the web app with Prisma. For the current Aiven setup, use `mysql://avnadmin:<password>@mysql-3ad09837-vlogsnqt720-e2a0.h.aivencloud.com:23011/defaultdb?ssl-mode=REQUIRED`.
 - The FastAPI API can run with SQLite for local scanner development, but the Next.js dashboard auth/project tables use Prisma.
 - Set `LLM_API_KEY` only if you want AI triage enabled.
 - Set `NEXTAUTH_URL` to the web origin and generate a strong `NEXTAUTH_SECRET`.
@@ -96,7 +96,7 @@ PowerShell local setup example:
 
 ```powershell
 Copy-Item .env.example .env
-# Edit .env: set DATABASE_URL, NEXTAUTH_SECRET, SMTP_*, and optionally GOOGLE_*.
+# Edit .env: set the Aiven DATABASE_URL, NEXTAUTH_SECRET, SMTP_*, and optionally GOOGLE_*.
 cd apps/web
 npm install
 npx prisma generate
