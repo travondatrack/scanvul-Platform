@@ -17,9 +17,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Select } from "@/components/ui/select";
 import { CardGridSkeleton } from "@/components/ui/skeleton";
 import { PageHeader } from "@/components/ui/page-header";
+import { CreateOrgDialog } from "@/components/CreateOrgDialog";
+import { InviteMemberDialog } from "@/components/InviteMemberDialog";
 
 type Member = {
   id: string;
@@ -53,74 +54,6 @@ function RoleBadge({ role }: { role: string }) {
       <Icon className="w-3 h-3" />
       {meta.label}
     </Badge>
-  );
-}
-
-function InviteMemberForm({
-  orgId,
-  onSuccess,
-}: {
-  orgId: string;
-  onSuccess: () => void;
-}) {
-  const [email, setEmail] = useState("");
-  const [role, setRole] = useState("member");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setError("");
-    setSuccess("");
-
-    try {
-      const res = await fetch(`/api/organizations/${orgId}/members`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, role }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to add member");
-      setSuccess(`${email} added as ${role}`);
-      setEmail("");
-      onSuccess();
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Unknown error");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-2 p-4 bg-muted/40 rounded-xl border border-border">
-      <Input
-        type="email"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-        placeholder="member@example.com"
-        required
-        className="flex-1"
-      />
-      <Select
-        value={role}
-        onChange={(e) => setRole(e.target.value)}
-      >
-        <option value="admin">Admin</option>
-        <option value="member">Member</option>
-        <option value="viewer">Viewer</option>
-      </Select>
-      <Button
-        type="submit"
-        disabled={loading}
-      >
-        {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-        <span>Add</span>
-      </Button>
-      {error && <p className="text-xs text-red-400 mt-1 self-end">{error}</p>}
-      {success && <p className="text-xs text-emerald-400 mt-1 self-end">{success}</p>}
-    </form>
   );
 }
 
@@ -248,61 +181,14 @@ function MemberRow({
   );
 }
 
-function CreateOrgForm({ onSuccess }: { onSuccess: () => void }) {
-  const [name, setName] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setError("");
-    try {
-      const res = await fetch("/api/organizations", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to create");
-      setName("");
-      onSuccess();
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Unknown error");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <form
-      onSubmit={handleSubmit}
-      className="flex gap-2 p-4 bg-muted/40 rounded-xl border border-border"
-    >
-      <Input
-        type="text"
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-        placeholder="New organization name"
-        required
-        className="flex-1"
-      />
-      <Button
-        type="submit"
-        disabled={loading}
-      >
-        {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-        <span>Create</span>
-      </Button>
-      {error && <p className="text-xs text-red-400 self-end">{error}</p>}
-    </form>
-  );
-}
-
 export default function TeamPage() {
   const [orgs, setOrgs] = useState<Organization[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showCreateOrg, setShowCreateOrg] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 5;
+
+  const totalPages = Math.ceil(orgs.length / itemsPerPage);
+  const paginatedOrgs = orgs.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   const fetchOrgs = useCallback(async () => {
     setLoading(true);
@@ -351,21 +237,9 @@ export default function TeamPage() {
         title="Team"
         description="Manage organizations, members, and roles."
         actions={(
-          <Button onClick={() => setShowCreateOrg((s) => !s)}>
-            <Plus className="w-4 h-4" />
-            <span>New Organization</span>
-          </Button>
+          <CreateOrgDialog onSuccess={fetchOrgs} />
         )}
       />
-
-      {showCreateOrg && (
-        <CreateOrgForm
-          onSuccess={() => {
-            setShowCreateOrg(false);
-            fetchOrgs();
-          }}
-        />
-      )}
 
       {orgs.length === 0 ? (
         <Card className="p-12 text-center">
@@ -374,17 +248,21 @@ export default function TeamPage() {
           <p className="mt-2 text-sm text-muted-foreground max-w-sm mx-auto">
             Create an organization to collaborate with your team and manage project access centrally.
           </p>
-          <Button
-            onClick={() => setShowCreateOrg(true)}
-            className="mt-6"
-          >
-            <Building2 className="w-4 h-4" />
-            <span>Create Organization</span>
-          </Button>
+          <div className="mt-6">
+            <CreateOrgDialog 
+              onSuccess={fetchOrgs} 
+              trigger={
+                <Button>
+                  <Building2 className="w-4 h-4 mr-2" />
+                  <span>Create Organization</span>
+                </Button>
+              } 
+            />
+          </div>
         </Card>
       ) : (
         <div className="space-y-5">
-          {orgs.map((org) => (
+          {paginatedOrgs.map((org) => (
             <section
               key={org.id}
               className="overflow-hidden rounded-xl border border-border bg-card text-card-foreground shadow-sm"
@@ -402,18 +280,17 @@ export default function TeamPage() {
                     </p>
                   </div>
                 </div>
-                <RoleBadge role={org.myRole ?? "viewer"} />
-              </div>
-
-              {/* Invite form (only for owner/admin) */}
-              {canManageOrg(org) && (
-                <div className="p-4 border-b border-border bg-muted/30">
-                  <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">
-                    Invite Member
-                  </p>
-                  <InviteMemberForm orgId={org.id} onSuccess={fetchOrgs} />
+                <div className="flex items-center gap-3">
+                  <RoleBadge role={org.myRole ?? "viewer"} />
+                  {canManageOrg(org) && (
+                    <InviteMemberDialog 
+                      orgId={org.id} 
+                      orgName={org.name} 
+                      onSuccess={fetchOrgs} 
+                    />
+                  )}
                 </div>
-              )}
+              </div>
 
               {/* Members list */}
               <div className="divide-y divide-border">
@@ -429,6 +306,35 @@ export default function TeamPage() {
               </div>
             </section>
           ))}
+          
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between border-t border-border pt-4 mt-6">
+              <p className="text-sm text-muted-foreground hidden sm:block">
+                Showing {(currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, orgs.length)} of {orgs.length} organizations
+              </p>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={currentPage === 1}
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                >
+                  Previous
+                </Button>
+                <div className="text-sm font-medium mx-2">
+                  Page {currentPage} of {totalPages}
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={currentPage === totalPages}
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

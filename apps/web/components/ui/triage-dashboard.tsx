@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { 
   ArrowLeft, CheckCircle, AlertTriangle, RefreshCw, 
   ShieldCheck, ShieldAlert, FileCode2, ChevronLeft, ChevronRight,
@@ -105,6 +106,29 @@ export function TriageDashboard({
   const itemsPerPage = 10;
   
   const isRunning = scan.status === "queued" || scan.status === "running";
+  
+  const router = useRouter();
+  const prevStatus = useRef(scan.status);
+
+  // Auto-refresh when scan is running
+  useEffect(() => {
+    if (isRunning) {
+      const interval = setInterval(() => {
+        router.refresh();
+      }, 3000);
+      return () => clearInterval(interval);
+    }
+  }, [isRunning, router]);
+
+  // Show popup when scan transitions to completed or failed
+  useEffect(() => {
+    if ((prevStatus.current === "queued" || prevStatus.current === "running") && scan.status === "completed") {
+      alert("✅ Quá trình Scan đã hoàn tất!");
+    } else if ((prevStatus.current === "queued" || prevStatus.current === "running") && scan.status === "failed") {
+      alert("❌ Quá trình Scan thất bại. Vui lòng kiểm tra lại logs.");
+    }
+    prevStatus.current = scan.status;
+  }, [scan.status]);
 
   // Filtering
   const filtered = useMemo(() => {

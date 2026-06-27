@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
-import { accessibleProjectWhere, accessibleScanWhere } from "@/lib/access";
+import { projectScopeWhere, scanScopeWhere } from "@/lib/access";
+import { getOrgContextServer } from "@/lib/context";
 import { requireActiveUser } from "@/lib/session";
 import { FolderKanban, ShieldAlert, Activity, AlertTriangle, ShieldCheck } from "lucide-react";
 import Link from "next/link";
@@ -9,19 +10,20 @@ import { buttonVariants } from "@/components/ui/button";
 
 export default async function DashboardOverviewPage() {
   const user = await requireActiveUser();
+  const orgCtx = await getOrgContextServer();
 
   // Fetch aggregate stats
   const totalProjects = await prisma.project.count({
-    where: user.roleGlobal === "admin" ? undefined : accessibleProjectWhere(user.id, "view"),
+    where: projectScopeWhere(user, "view", orgCtx),
   });
   
   const totalScans = await prisma.scan.count({
-    where: user.roleGlobal === "admin" ? undefined : accessibleScanWhere(user.id, "view"),
+    where: scanScopeWhere(user, "view", orgCtx),
   });
 
   const findings = await prisma.finding.findMany({
     where: {
-      scan: user.roleGlobal === "admin" ? undefined : accessibleScanWhere(user.id, "view"),
+      scan: scanScopeWhere(user, "view", orgCtx),
     },
     select: { severity: true, status: true }
   });

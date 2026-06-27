@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { Building2, ChevronDown, User, Check } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useRouter } from "next/navigation";
 
 export type OrgContext = {
   type: "personal" | "org";
@@ -27,6 +28,8 @@ export function getOrgContext(): OrgContext {
 
 export function setOrgContext(ctx: OrgContext) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(ctx));
+  // Set cookie for Server Components to read
+  document.cookie = `${STORAGE_KEY}=${encodeURIComponent(JSON.stringify(ctx))}; path=/; max-age=31536000`;
   window.dispatchEvent(new Event("orgContextChange"));
 }
 
@@ -43,6 +46,7 @@ type Props = {
 };
 
 export function OrgSwitcher({ onChange }: Props) {
+  const router = useRouter();
   const [orgs, setOrgs] = useState<Org[]>([]);
   const [current, setCurrent] = useState<OrgContext>({ type: "personal", name: "Personal" });
   const [open, setOpen] = useState(false);
@@ -63,8 +67,9 @@ export function OrgSwitcher({ onChange }: Props) {
       setOrgContext(ctx);
       setOpen(false);
       onChange?.(ctx);
+      router.refresh();
     },
-    [onChange],
+    [onChange, router],
   );
 
   const personalCtx: OrgContext = { type: "personal", name: "Personal" };

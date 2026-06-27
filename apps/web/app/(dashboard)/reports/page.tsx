@@ -1,26 +1,42 @@
 import { prisma } from "@/lib/prisma";
-import { accessibleScanWhere } from "@/lib/access";
+import { scanScopeWhere } from "@/lib/access";
+import { getOrgContextServer } from "@/lib/context";
 import { requireActiveUser } from "@/lib/session";
 import { ShieldCheck, AlertTriangle, RefreshCw, FileText, ChevronRight, Search, Filter, ShieldAlert, ArrowRight, Download } from "lucide-react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
-import { buttonVariants } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
 
-export default async function ReportsPage() {
+export default async function ReportsPage({ searchParams }: { searchParams: Promise<{ [key: string]: string | string[] | undefined }> }) {
   const user = await requireActiveUser();
+  const orgCtx = await getOrgContextServer();
+  
+  const resolvedParams = await searchParams;
+  const page = parseInt((resolvedParams.page as string) || "1", 10);
+  const limit = 15;
+  const skip = (page - 1) * limit;
 
-  const scans = await prisma.scan.findMany({
-    where: user.roleGlobal === "admin" ? undefined : accessibleScanWhere(user.id, "view"),
-    include: {
-      project: true,
-      findings: {
-        select: { severity: true }
-      }
-    },
-    orderBy: { createdAt: "desc" }
-  });
+  const whereCondition = scanScopeWhere(user, "view", orgCtx);
+
+  const [scans, totalCount] = await Promise.all([
+    prisma.scan.findMany({
+      where: whereCondition,
+      include: {
+        project: true,
+        findings: {
+          select: { severity: true }
+        }
+      },
+      orderBy: { createdAt: "desc" },
+      skip,
+      take: limit,
+    }),
+    prisma.scan.count({ where: whereCondition })
+  ]);
+  
+  const totalPages = Math.ceil(totalCount / limit) || 1;
 
   return (
     <div className="space-y-6">
@@ -119,6 +135,33 @@ export default async function ReportsPage() {
                 })}
               </tbody>
             </table>
+          </div>
+        )}
+        
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between border-t border-border p-4">
+            <p className="text-sm text-muted-foreground hidden sm:block">
+              Showing {skip + 1} to {Math.min(skip + limit, totalCount)} of {totalCount} scans
+            </p>
+            <div className="flex items-center gap-2">
+              {page > 1 ? (
+                <Link href={`?page=${page - 1}`} className={buttonVariants({ variant: "outline", size: "sm" })}>
+                  Previous
+                </Link>
+              ) : (
+                <Button variant="outline" size="sm" disabled>Previous</Button>
+              )}
+              <div className="text-sm font-medium mx-2">
+                Page {page} of {totalPages}
+              </div>
+              {page < totalPages ? (
+                <Link href={`?page=${page + 1}`} className={buttonVariants({ variant: "outline", size: "sm" })}>
+                  Next
+                </Link>
+              ) : (
+                <Button variant="outline" size="sm" disabled>Next</Button>
+              )}
+            </div>
           </div>
         )}
       </Card>

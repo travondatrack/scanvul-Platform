@@ -60,6 +60,8 @@ export async function POST(req: NextRequest) {
     if (!baseSlug) {
       return NextResponse.json({ error: "Invalid organization slug" }, { status: 400 });
     }
+    
+    const plan = ["free", "pro", "enterprise"].includes(body.plan) ? body.plan : "free";
 
     const organization = await prisma.$transaction(async (tx) => {
       let slug = baseSlug;
@@ -70,7 +72,7 @@ export async function POST(req: NextRequest) {
       }
 
       const created = await tx.organization.create({
-        data: { name, slug },
+        data: { name, slug, plan },
       });
 
       await tx.organizationMember.create({

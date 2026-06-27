@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
-import { accessibleProjectWhere } from "@/lib/access";
+import { projectScopeWhere } from "@/lib/access";
+import { getOrgContextServer } from "@/lib/context";
 import { requireActiveUser } from "@/lib/session";
 import { Plus, FolderKanban, ShieldCheck, Clock, Github } from "lucide-react";
 import Link from "next/link";
@@ -10,9 +11,10 @@ import { PageHeader } from "@/components/ui/page-header";
 
 export default async function ProjectsPage() {
   const user = await requireActiveUser();
+  const orgCtx = await getOrgContextServer();
 
   const projects = await prisma.project.findMany({
-    where: user.roleGlobal === "admin" ? undefined : accessibleProjectWhere(user.id, "view"),
+    where: projectScopeWhere(user, "view", orgCtx),
     include: {
       organization: { select: { name: true } },
       scans: {

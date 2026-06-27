@@ -22,31 +22,81 @@ function rolesFor(action: ProjectAction) {
   return VIEW_ROLES;
 }
 
-export function accessibleProjectWhere(userId: string, action: ProjectAction = "view") {
+export function accessibleProjectWhere(
+  userId: string, 
+  action: ProjectAction = "view",
+  orgScope?: string | null
+) {
   const roles = rolesFor(action);
 
-  return {
-    OR: [
-      { createdBy: userId },
-      {
-        organization: {
-          members: {
-            some: {
-              userId,
-              role: { in: roles },
-            },
+  const baseOr = [
+    { createdBy: userId },
+    {
+      organization: {
+        members: {
+          some: {
+            userId,
+            role: { in: roles },
           },
         },
       },
-      action === "view" ? { visibility: "public" } : undefined,
-    ].filter(Boolean) as any,
+    },
+    action === "view" ? { visibility: "public" } : undefined,
+  ].filter(Boolean) as any;
+
+  const where: any = { OR: baseOr };
+
+  if (orgScope === null) {
+    where.organizationId = null;
+  } else if (orgScope !== undefined) {
+    where.organizationId = orgScope;
+  }
+
+  return where;
+}
+
+export function projectScopeWhere(
+  user: { id: string, roleGlobal: string },
+  action: ProjectAction,
+  orgCtx?: { type: string, id?: string }
+) {
+  const scopeId = orgCtx?.type === "personal" ? null : (orgCtx?.id ?? undefined);
+  
+  if (user.roleGlobal === "admin") {
+    if (scopeId !== undefined) {
+      return { organizationId: scopeId };
+    }
+    return undefined; // All projects for admin if no scope
+  }
+  
+  return accessibleProjectWhere(user.id, action, scopeId);
+}
+
+export function accessibleScanWhere(
+  userId: string,
+  action: ProjectAction = "view",
+  orgScope?: string | null
+) {
+  return {
+    project: accessibleProjectWhere(userId, action, orgScope),
   };
 }
 
-export function accessibleScanWhere(userId: string, action: ProjectAction = "view") {
-  return {
-    project: accessibleProjectWhere(userId, action),
-  };
+export function scanScopeWhere(
+  user: { id: string, roleGlobal: string },
+  action: ProjectAction,
+  orgCtx?: { type: string, id?: string }
+) {
+  const scopeId = orgCtx?.type === "personal" ? null : (orgCtx?.id ?? undefined);
+  
+  if (user.roleGlobal === "admin") {
+    if (scopeId !== undefined) {
+      return { project: { organizationId: scopeId } };
+    }
+    return undefined;
+  }
+  
+  return accessibleScanWhere(user.id, action, scopeId);
 }
 
 export async function canViewProject(userId: string, projectId: string) {

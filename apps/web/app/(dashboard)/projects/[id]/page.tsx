@@ -4,7 +4,8 @@ import { requireActiveUser } from "@/lib/session";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ShieldCheck, RefreshCw, AlertTriangle, Clock, FolderKanban } from "lucide-react";
-import TriggerScanButton from "../../../../components/TriggerScanButton"; // We'll create this component next
+import TriggerScanButton from "../../../../components/TriggerScanButton";
+import { AutoRefresher } from "../../../../components/AutoRefresher";
 import { canManageProject } from "@/lib/access";
 
 export default async function ProjectDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -32,8 +33,11 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
   const canTrigger = await canTriggerScan(user.id, project.id);
   const canManage = await canManageProject(user.id, project.id);
 
+  const hasRunningScans = project.scans.some(s => s.status === "queued" || s.status === "running");
+
   return (
     <div className="space-y-6 max-w-6xl mx-auto">
+      {hasRunningScans && <AutoRefresher />}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-slate-900 dark:text-foreground tracking-tight">{project.name}</h1>
