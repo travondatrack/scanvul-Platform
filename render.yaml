@@ -8,7 +8,7 @@ services:
     envVars:
       - key: DATABASE_URL
         sync: false
-      - key: NEXT_PUBLIC_API_BASE_URL
+      - key: BACKEND_API_BASE_URL
         fromService:
           type: web
           name: scanvul-api
