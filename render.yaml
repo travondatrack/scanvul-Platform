@@ -9,10 +9,7 @@ services:
       - key: DATABASE_URL
         sync: false
       - key: BACKEND_API_BASE_URL
-        fromService:
-          type: docker
-          name: scanvul-api
-          envVarKey: RENDER_EXTERNAL_URL
+        value: https://scanvul-platform-backend.onrender.com
       - key: NEXTAUTH_URL
         sync: false
       - key: NEXTAUTH_SECRET
