@@ -267,3 +267,53 @@ def _mark_scan_failed(db, scan_id: str, error_message: str) -> None:
 )
 def run_scan(self, scan_id: str) -> str:
     return execute_scan(scan_id)
+
+
+@celery_app.task(name="scan.cleanup_stale")
+def cleanup_stale_scans() -> int:
+    """
+    Periodic task to find scans stuck in 'queued' or 'running' for too long
+    and mark them as failed.
+    """
+    db = SessionLocal()
+    try:
+        now = datetime.utcnow()
+        # Find queued scans > 3 minutes old
+        stale_scans = db.query(Scan).filter(
+            Scan.status == "queued"
+        ).all()
+        
+        failed_count = 0
+        for scan in stale_scans:
+            if scan.created_at and (now - scan.created_at).total_seconds() > 180:
+                logger.warning("Scan %s stuck in queued for > 3 minutes. Marking as failed.", scan.id)
+                scan.status = "failed"
+                scan.completed_at = now
+                scan.error_message = "Scan timeout: Stuck in queue for more than 3 minutes."
+                db.add(ScanEvent(scan_id=scan.id, event_type="failed", message=scan.error_message))
+                failed_count += 1
+                
+        # Also clean up stuck 'running' scans > 30 mins
+        stuck_running = db.query(Scan).filter(
+            Scan.status == "running"
+        ).all()
+        
+        for scan in stuck_running:
+            if scan.started_at and (now - scan.started_at).total_seconds() > 1800:
+                logger.warning("Scan %s stuck in running for > 30 minutes. Marking as failed.", scan.id)
+                scan.status = "failed"
+                scan.completed_at = now
+                scan.error_message = "Scan timeout: Stuck in running for more than 30 minutes."
+                db.add(ScanEvent(scan_id=scan.id, event_type="failed", message=scan.error_message))
+                failed_count += 1
+                
+        if failed_count > 0:
+            db.commit()
+            
+        return failed_count
+    except Exception as exc:
+        logger.error("Failed to cleanup stale scans: %s", exc)
+        db.rollback()
+        return 0
+    finally:
+        db.close()

@@ -1,4 +1,5 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import model_validator
 
 
 class Settings(BaseSettings):
@@ -11,8 +12,15 @@ class Settings(BaseSettings):
         "mysql-3ad09837-vlogsnqt720-e2a0.h.aivencloud.com:23011/defaultdb?ssl-mode=REQUIRED"
     )
     redis_url: str = ""
+    upstash_redis_url: str = ""
     upstash_redis_rest_url: str = ""
     upstash_redis_rest_token: str = ""
+
+    @model_validator(mode="after")
+    def resolve_redis(self) -> "Settings":
+        if self.upstash_redis_url:
+            self.redis_url = self.upstash_redis_url
+        return self
 
     scan_worker_mode: str = "thread"
     storage_backend: str = "local"
