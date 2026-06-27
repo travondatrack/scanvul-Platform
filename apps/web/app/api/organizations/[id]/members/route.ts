@@ -44,7 +44,12 @@ export async function GET(
       orderBy: { createdAt: "asc" },
     });
 
-    return NextResponse.json({ items: members });
+    const items = members.map((m) => ({
+      ...m,
+      isMe: m.userId === user.id,
+    }));
+
+    return NextResponse.json({ items });
   } catch (error) {
     if (error instanceof Error && error.message === "UNAUTHORIZED") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

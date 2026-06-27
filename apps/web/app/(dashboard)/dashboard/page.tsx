@@ -49,7 +49,7 @@ export default async function DashboardOverviewPage() {
       />
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Card className="group transition-colors hover:border-brand/30">
+        <Card className="group transition-colors hover:border-brand/30 p-6">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-muted-foreground font-medium">Total Projects</h3>
             <div className="w-10 h-10 rounded-lg bg-brand/10 text-brand flex items-center justify-center group-hover:scale-105 transition-transform">
@@ -59,7 +59,7 @@ export default async function DashboardOverviewPage() {
           <p className="text-4xl font-extrabold text-foreground">{totalProjects}</p>
         </Card>
 
-        <Card className="group transition-colors hover:border-brand/30">
+        <Card className="group transition-colors hover:border-brand/30 p-6">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-muted-foreground font-medium">Total Scans</h3>
             <div className="w-10 h-10 rounded-lg bg-brand/10 text-brand flex items-center justify-center group-hover:scale-105 transition-transform">
@@ -69,7 +69,7 @@ export default async function DashboardOverviewPage() {
           <p className="text-4xl font-extrabold text-foreground">{totalScans}</p>
         </Card>
 
-        <Card className="group transition-colors hover:border-destructive/30">
+        <Card className="group transition-colors hover:border-destructive/30 p-6">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-muted-foreground font-medium">Critical Risks</h3>
             <div className="w-10 h-10 rounded-lg bg-destructive/10 flex items-center justify-center border border-destructive/20 group-hover:scale-105 transition-transform">
@@ -79,7 +79,7 @@ export default async function DashboardOverviewPage() {
           <p className="text-4xl font-extrabold text-destructive">{criticalCount}</p>
         </Card>
 
-        <Card className="group transition-colors hover:border-warning/30">
+        <Card className="group transition-colors hover:border-warning/30 p-6">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-muted-foreground font-medium">High Risks</h3>
             <div className="w-10 h-10 rounded-lg bg-warning/10 flex items-center justify-center border border-warning/20 group-hover:scale-105 transition-transform">
@@ -91,7 +91,7 @@ export default async function DashboardOverviewPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
-        <Card>
+        <Card className="h-full flex flex-col">
           <CardHeader>
             <CardTitle>Active Vulnerabilities Breakdown</CardTitle>
           </CardHeader>
@@ -141,7 +141,7 @@ export default async function DashboardOverviewPage() {
           </CardContent>
         </Card>
 
-        <Card className="flex flex-col items-center justify-center p-6 text-center">
+        <Card className="h-full flex flex-col items-center justify-center p-6 text-center">
           <div className="w-20 h-20 bg-success/10 border border-success/20 rounded-full flex items-center justify-center mb-4">
             <ShieldCheck className="w-10 h-10 text-success" />
           </div>

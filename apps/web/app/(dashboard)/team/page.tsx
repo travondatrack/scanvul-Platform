@@ -26,6 +26,7 @@ type Member = {
   role: string;
   createdAt: string;
   user: { id: string; name: string | null; email: string | null; status: string };
+  isMe?: boolean;
 };
 
 type Organization = {
@@ -163,6 +164,18 @@ function MemberRow({
     }
   };
 
+  const leaveOrg = async () => {
+    if (!confirm("Are you sure you want to leave this organization? You will lose access to its projects.")) return;
+    setLoading(true);
+    try {
+      await fetch(`/api/organizations/${orgId}/members/${member.id}`, { method: "DELETE" });
+      // Usually you'd redirect here if it's the only org, but refresh works
+      onRefresh();
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="flex items-center justify-between gap-4 p-4 hover:bg-muted/50 transition-colors">
       <div className="flex items-center gap-3">
@@ -180,7 +193,7 @@ function MemberRow({
       <div className="flex items-center gap-2">
         {loading && <Loader2 className="w-4 h-4 animate-spin text-brand" />}
 
-        {canManage && member.role !== "owner" ? (
+        {canManage && member.role !== "owner" && !member.isMe ? (
           <div className="relative">
             <button
               onClick={() => setRoleMenuOpen((o) => !o)}
@@ -211,13 +224,23 @@ function MemberRow({
           <RoleBadge role={member.role} />
         )}
 
-        {canManage && member.role !== "owner" && (
+        {canManage && member.role !== "owner" && !member.isMe && (
           <button
             onClick={removeMember}
             className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
             title="Remove member"
           >
             <Trash2 className="w-4 h-4" />
+          </button>
+        )}
+        
+        {member.isMe && member.role !== "owner" && (
+          <button
+            onClick={leaveOrg}
+            className="px-3 py-1.5 ml-2 text-xs font-semibold rounded-lg text-destructive border border-destructive/20 hover:bg-destructive hover:text-destructive-foreground transition-colors"
+            title="Leave Organization"
+          >
+            Leave
           </button>
         )}
       </div>
@@ -294,8 +317,7 @@ export default function TeamPage() {
           const mRes = await fetch(`/api/organizations/${org.id}/members`);
           const mData = await mRes.json();
           const members: Member[] = mData.items ?? [];
-          const myMember = members.find((m) => m.user);
-          return { ...org, members, myRole: myMember?.role ?? "viewer" };
+          return { ...org, members };
         }),
       );
 

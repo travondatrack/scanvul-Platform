@@ -28,7 +28,12 @@ export async function GET() {
       orderBy: { createdAt: "desc" },
     });
 
-    return NextResponse.json({ items: organizations });
+    const items = organizations.map(org => ({
+      ...org,
+      myRole: user.roleGlobal === "admin" ? "admin" : (org.members[0]?.role ?? "viewer")
+    }));
+
+    return NextResponse.json({ items });
   } catch (error) {
     if (error instanceof Error && error.message === "UNAUTHORIZED") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

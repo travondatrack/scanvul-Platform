@@ -5,7 +5,6 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ShieldCheck, RefreshCw, AlertTriangle, Clock, FolderKanban } from "lucide-react";
 import TriggerScanButton from "../../../../components/TriggerScanButton"; // We'll create this component next
-import { ApiTokenManager } from "@/components/ui/api-token-manager";
 import { canManageProject } from "@/lib/access";
 
 export default async function ProjectDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -104,12 +103,6 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
           </div>
         )}
       </div>
-
-      {canManage && (
-        <div className="mt-8">
-          <ApiTokenManager projectId={project.id} />
-        </div>
-      )}
     </div>
   );
 }
