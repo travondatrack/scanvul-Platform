@@ -32,7 +32,7 @@ export default function GetStartedPage() {
     <main className="relative min-h-screen overflow-hidden px-6 py-6 font-sans text-white sm:px-9 lg:px-12">
       <video
         className="pointer-events-none absolute inset-0 z-0 h-full w-full object-cover"
-        src="https://res.cloudinary.com/df0aqbfwn/video/upload/v1782379801/Generate_same_image_as_shown_i_xlbhhv.mp4"
+        src="https://res.cloudinary.com/df0aqbfwn/video/upload/v1782530592/newwww_mejlsj.mp4"
         autoPlay
         loop
         muted

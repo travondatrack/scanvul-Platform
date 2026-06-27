@@ -34,7 +34,7 @@ export default function LandingPage() {
       <div className="relative flex min-h-screen flex-col">
         <video
           className="pointer-events-none absolute inset-0 z-0 h-full w-full object-cover"
-          src="https://res.cloudinary.com/df0aqbfwn/video/upload/v1782380870/12123_qyyxae.mp4"
+          src="https://res.cloudinary.com/df0aqbfwn/video/upload/v1782530592/newwww_mejlsj.mp4"
           autoPlay
           loop
           muted
