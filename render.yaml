@@ -10,7 +10,7 @@ services:
         sync: false
       - key: BACKEND_API_BASE_URL
         fromService:
-          type: web
+          type: docker
           name: scanvul-api
           envVarKey: RENDER_EXTERNAL_URL
       - key: NEXTAUTH_URL
