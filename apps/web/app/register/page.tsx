@@ -48,13 +48,10 @@ export default function RegisterPage() {
         throw new Error(data.error || "Something went wrong");
       }
 
+      // Both new registrations and auto-resend cases land here
       setRequiresVerification(Boolean(data.requiresVerification));
       setResendCooldown(60);
     } catch (err: any) {
-      if (err.message === "Email already registered but not verified") {
-        setRequiresVerification(true);
-      }
-
       setError(err.message);
     } finally {
       setIsLoading(false);

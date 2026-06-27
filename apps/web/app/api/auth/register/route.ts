@@ -38,11 +38,17 @@ export async function POST(req: NextRequest) {
 
     if (existingUser) {
       if (!existingUser.emailVerified) {
+        // Auto-resend OTP so user doesn't get stuck
+        try {
+          await createAndSendVerificationOtp(existingUser.id, email);
+        } catch (sendErr) {
+          console.error("Failed to resend OTP:", sendErr);
+        }
         return NextResponse.json({
-          error: "Email already registered but not verified",
+          message: "Verification code resent to your email",
           requiresVerification: true,
           email,
-        }, { status: 409 });
+        }, { status: 200 });
       }
 
       return NextResponse.json({ error: "Email already exists" }, { status: 400 });
@@ -55,17 +61,17 @@ export async function POST(req: NextRequest) {
         name: typeof name === "string" ? name.trim() : null,
         email,
         password: hashedPassword,
-        emailVerified: new Date(),
+        emailVerified: null,
         roleGlobal: "user",
         status: "active",
       },
     });
 
-    // await createAndSendVerificationOtp(user.id, email);
+    await createAndSendVerificationOtp(user.id, email);
 
     return NextResponse.json({
       message: "Registration successful",
-      requiresVerification: false,
+      requiresVerification: true,
       user: {
         id: user.id,
         email: user.email,

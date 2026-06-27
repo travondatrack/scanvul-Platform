@@ -12,9 +12,11 @@ export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [otp, setOtp] = useState("");
   const [error, setError] = useState("");
   const [needsVerification, setNeedsVerification] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isVerifying, setIsVerifying] = useState(false);
   const [isResending, setIsResending] = useState(false);
   const [googleAuthEnabled, setGoogleAuthEnabled] = useState(false);
 
@@ -75,6 +77,41 @@ export default function LoginPage() {
     }
   };
 
+  const handleVerify = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsVerifying(true);
+    setError("");
+
+    try {
+      const res = await fetch("/api/auth/verify-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, otp }),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || "Could not verify email");
+      }
+
+      const signInResult = await signIn("credentials", {
+        redirect: false,
+        email,
+        password,
+      });
+
+      if (signInResult?.error) {
+        throw new Error("Email verified. Please sign in with your password.");
+      }
+
+      router.push("/projects");
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setIsVerifying(false);
+    }
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-background text-foreground relative overflow-hidden font-sans">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_22%_12%,hsl(var(--brand)/0.14),transparent_28%),radial-gradient(circle_at_80%_0%,hsl(var(--brand)/0.12),transparent_30%)]" />
@@ -94,11 +131,15 @@ export default function LoginPage() {
           </div>
 
           <div className="text-center space-y-2">
-            <h2 className="text-2xl font-bold tracking-tight text-foreground">Welcome back</h2>
-            <p className="text-sm text-muted-foreground">Sign in to manage your security scans</p>
+            <h2 className="text-2xl font-bold tracking-tight text-foreground">
+              {needsVerification ? "Verify your email" : "Welcome back"}
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              {needsVerification ? `Enter the 6-digit code sent to ${email}` : "Sign in to manage your security scans"}
+            </p>
           </div>
 
-          <form onSubmit={handleSubmit} className="w-full space-y-4 pt-4">
+          <form onSubmit={needsVerification ? handleVerify : handleSubmit} className="w-full space-y-4 pt-4">
             {error && (
               <div className="bg-red-500/10 border border-red-500/20 text-red-400 text-sm p-3 rounded-xl space-y-3">
                 {error}
@@ -114,41 +155,57 @@ export default function LoginPage() {
                 ) : null}
               </div>
             )}
-            
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-slate-400 ml-1">Email</label>
-              <Input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="john@example.com"
-                required
-              />
-            </div>
+            {needsVerification ? (
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-slate-400 ml-1">Verification Code</label>
+                <Input
+                  type="text"
+                  value={otp}
+                  onChange={(e) => setOtp(e.target.value)}
+                  placeholder="123456"
+                  maxLength={6}
+                  required
+                  className="text-center tracking-widest text-lg font-bold"
+                />
+              </div>
+            ) : (
+              <>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-slate-400 ml-1">Email</label>
+                  <Input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="john@example.com"
+                    required
+                  />
+                </div>
 
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-slate-400 ml-1">Password</label>
-              <Input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                required
-              />
-            </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-slate-400 ml-1">Password</label>
+                  <Input
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="••••••••"
+                    required
+                  />
+                </div>
+              </>
+            )}
 
             <Button
               type="submit"
-              disabled={isLoading}
+              disabled={isLoading || isVerifying}
               variant="brandHero"
               className="w-full"
             >
-              {isLoading && <Loader2 className="w-4 h-4 animate-spin" />}
-              <span>{isLoading ? "Signing in..." : "Sign In"}</span>
+              {(isLoading || isVerifying) && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              <span>{needsVerification ? (isVerifying ? "Verifying..." : "Verify") : (isLoading ? "Signing in..." : "Sign In")}</span>
             </Button>
           </form>
 
-          {googleAuthEnabled ? (
+          {!needsVerification && googleAuthEnabled ? (
           <div className="w-full space-y-4 pt-2">
               <div className="relative flex items-center py-2">
               <div className="flex-grow border-t border-border"></div>

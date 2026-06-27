@@ -164,7 +164,13 @@ export default async function ScanDetailPage({
           </div>
         </div>
 
-        <ScanProgress scanId={scanId} initialStatus={scan.status} />
+        <ScanProgress
+          scanId={scanId}
+          initialStatus={scan.status}
+          projectId={scan.project_id ?? undefined}
+          repoUrl={scan.source_value ?? undefined}
+          sourceType={scan.source_type ?? undefined}
+        />
 
         <section className="mb-5 grid gap-3 md:grid-cols-4">
           {metrics.map((item, index) => (

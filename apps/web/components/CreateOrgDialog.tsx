@@ -58,11 +58,13 @@ export function CreateOrgDialog({ onSuccess, trigger }: { onSuccess: () => void,
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       {trigger ? (
-        <DialogTrigger render={trigger} />
+        <DialogTrigger asChild>{trigger}</DialogTrigger>
       ) : (
-        <DialogTrigger className={cn(buttonVariants({ variant: "default" }), "gap-2")}>
-          <Plus className="w-4 h-4" />
-          <span>New Organization</span>
+        <DialogTrigger asChild>
+          <button className={cn(buttonVariants({ variant: "default" }), "gap-2")}>
+            <Plus className="w-4 h-4" />
+            <span>New Organization</span>
+          </button>
         </DialogTrigger>
       )}
       
