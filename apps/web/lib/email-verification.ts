@@ -12,19 +12,17 @@ export function generateOtp() {
 
 export async function createAndSendVerificationOtp(userId: string, email: string) {
   const otp = generateOtp();
-  const otpHash = await bcrypt.hash(otp, 10);
   const now = new Date();
 
-  await prisma.emailVerificationOtp.updateMany({
-    where: {
-      userId,
-      email,
-      consumedAt: null,
-    },
-    data: {
-      consumedAt: now,
-    },
-  });
+  // Use rounds=8 for OTP: short-lived (10 min), lower cost on free-tier CPU
+  const [otpHash] = await Promise.all([
+    bcrypt.hash(otp, 8),
+    // Invalidate old OTPs in parallel with hashing
+    prisma.emailVerificationOtp.updateMany({
+      where: { userId, email, consumedAt: null },
+      data: { consumedAt: now },
+    }),
+  ]);
 
   await prisma.emailVerificationOtp.create({
     data: {
@@ -35,7 +33,10 @@ export async function createAndSendVerificationOtp(userId: string, email: string
     },
   });
 
-  await sendVerificationEmail({ to: email, otp });
+  // Fire-and-forget: don't block the HTTP response on SMTP
+  sendVerificationEmail({ to: email, otp }).catch((err) =>
+    console.error("[email] Failed to send verification email:", err)
+  );
 }
 
 export async function verifyEmailOtp(email: string, otp: string) {
