@@ -1,5 +1,3 @@
-import { Resend } from "resend";
-
 type VerificationEmailInput = {
   to: string;
   otp: string;
@@ -21,32 +19,43 @@ const EMAIL_HTML = (otp: string) => `
   </div>
 `;
 
-export async function sendVerificationEmail({ to, otp }: VerificationEmailInput) {
-  const resendKey = process.env.RESEND_API_KEY;
+function smtpConfigured() {
+  return Boolean(
+    process.env.SMTP_HOST &&
+    process.env.SMTP_PORT &&
+    process.env.SMTP_USER &&
+    process.env.SMTP_PASS &&
+    process.env.SMTP_FROM,
+  );
+}
 
-  // ── Dev mode fallback ─────────────────────────────────────────────────────
-  if (!resendKey) {
+export async function sendVerificationEmail({ to, otp }: VerificationEmailInput) {
+  if (!smtpConfigured()) {
     if (process.env.EMAIL_DEV_MODE === "true") {
       console.warn(`[email] EMAIL_DEV_MODE=true — OTP for ${to}: ${otp}`);
       return;
     }
-    throw new Error("RESEND_API_KEY is not configured");
+    throw new Error("SMTP is not configured");
   }
 
-  const resend = new Resend(resendKey);
+  // Dynamic import to avoid webpack CJS/ESM conflict in Next.js App Router
+  const nodemailer = (await import("nodemailer")).default;
 
-  const fromAddress = process.env.RESEND_FROM ?? "ScanVul AI <onboarding@resend.dev>";
-
-  const { error } = await resend.emails.send({
-    from: fromAddress,
-    to,
-    subject: "Verify your ScanVul AI email",
-    html: EMAIL_HTML(otp),
-    text: `Your ScanVul AI verification code is: ${otp}. It expires in 10 minutes.`,
+  const transporter = nodemailer.createTransport({
+    host: process.env.SMTP_HOST,
+    port: Number(process.env.SMTP_PORT),
+    secure: Number(process.env.SMTP_PORT) === 465,
+    auth: {
+      user: process.env.SMTP_USER,
+      pass: process.env.SMTP_PASS,
+    },
   });
 
-  if (error) {
-    console.error("[email] Resend error:", error);
-    throw new Error(`Failed to send verification email: ${error.message}`);
-  }
+  await transporter.sendMail({
+    from: process.env.SMTP_FROM,
+    to,
+    subject: "Verify your ScanVul AI email",
+    text: `Your ScanVul AI verification code is: ${otp}. It expires in 10 minutes.`,
+    html: EMAIL_HTML(otp),
+  });
 }
