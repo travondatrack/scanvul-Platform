@@ -79,9 +79,35 @@ export async function POST(req: NextRequest) {
 
     // ── Trigger FastAPI worker ──────────────────────────────────────────────
     // Uses canonical plural URL: /api/v1/scans/{scan_id}/trigger
-    try {
-      await postBackend(`scans/${scan.id}/trigger`, undefined, { timeoutMs: 10000 });
-    } catch (backendErr) {
+    // Retry up to 3 times with backoff to handle Render free-tier cold starts
+    const MAX_RETRIES = 3;
+    const RETRY_DELAYS = [5000, 15000, 30000]; // 5s, 15s, 30s
+    let backendErr: unknown = null;
+
+    for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+      try {
+        await postBackend(`scans/${scan.id}/trigger`, undefined, { timeoutMs: 60000 });
+        backendErr = null;
+        break; // success
+      } catch (err) {
+        backendErr = err;
+        const isNetworkError = err instanceof BackendError && err.status === 0;
+        const is409 = err instanceof BackendError && err.status === 409;
+
+        // Don't retry on 409 (already running)
+        if (is409 || attempt === MAX_RETRIES - 1) break;
+
+        // Only retry on network/connection errors (cold start)
+        if (isNetworkError) {
+          console.warn(`[trigger] Backend not ready (attempt ${attempt + 1}/${MAX_RETRIES}), retrying in ${RETRY_DELAYS[attempt]}ms...`);
+          await new Promise((r) => setTimeout(r, RETRY_DELAYS[attempt]));
+        } else {
+          break; // Don't retry on HTTP errors
+        }
+      }
+    }
+
+    if (backendErr) {
       console.error("[trigger] Backend trigger failed for scan", scan.id, backendErr);
 
       // Mark scan as failed immediately — prevents zombie queued scans
@@ -93,7 +119,7 @@ export async function POST(req: NextRequest) {
       const message =
         backendErr instanceof BackendError && backendErr.status === 409
           ? "Scan engine reports this scan is already running."
-          : "Failed to start scan engine. Ensure the Python backend is running.";
+          : "Failed to start scan engine. The backend may be starting up — please try again in 30 seconds.";
 
       return NextResponse.json({ error: message }, { status: 503 });
     }
