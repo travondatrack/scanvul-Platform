@@ -34,12 +34,15 @@ export default function RegisterPage() {
     e.preventDefault();
     setIsLoading(true);
     setError("");
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 20_000);
 
     try {
       const res = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name, email, password }),
+        signal: controller.signal,
       });
 
       const data = await res.json();
@@ -52,8 +55,11 @@ export default function RegisterPage() {
       setRequiresVerification(Boolean(data.requiresVerification));
       setResendCooldown(60);
     } catch (err: any) {
-      setError(err.message);
+      setError(err.name === "AbortError"
+        ? "Account creation is taking too long. Please try again in a moment."
+        : err.message);
     } finally {
+      window.clearTimeout(timeout);
       setIsLoading(false);
     }
   };

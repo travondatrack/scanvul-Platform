@@ -29,6 +29,8 @@ function smtpConfigured() {
   );
 }
 
+const SMTP_TIMEOUT_MS = Number(process.env.SMTP_TIMEOUT_MS ?? 10_000);
+
 export async function sendVerificationEmail({ to, otp }: VerificationEmailInput) {
   if (!smtpConfigured()) {
     if (process.env.EMAIL_DEV_MODE === "true") {
@@ -45,6 +47,9 @@ export async function sendVerificationEmail({ to, otp }: VerificationEmailInput)
     host: process.env.SMTP_HOST,
     port: Number(process.env.SMTP_PORT),
     secure: Number(process.env.SMTP_PORT) === 465,
+    connectionTimeout: SMTP_TIMEOUT_MS,
+    greetingTimeout: SMTP_TIMEOUT_MS,
+    socketTimeout: SMTP_TIMEOUT_MS,
     auth: {
       user: process.env.SMTP_USER,
       pass: process.env.SMTP_PASS,
