@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 
 export async function GET() {
+  if (process.env.NODE_ENV === "production") {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
   return NextResponse.json({
     BACKEND_API_BASE_URL: process.env.BACKEND_API_BASE_URL ?? "(not set)",
     NEXTAUTH_URL: process.env.NEXTAUTH_URL ?? "(not set)",
