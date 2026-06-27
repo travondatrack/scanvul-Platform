@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { Key, Trash2, Copy, Check, Terminal } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { formatVietnamDate } from "@/lib/date-format";
 
 interface ApiTokenManagerProps {
   projectId: string;
@@ -157,8 +158,8 @@ jobs:
               <div>
                 <p className="font-bold text-foreground text-sm">{token.name}</p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Created: {new Date(token.createdAt).toLocaleDateString()}
-                  {token.lastUsedAt && ` - Last Used: ${new Date(token.lastUsedAt).toLocaleDateString()}`}
+                  Created: {formatVietnamDate(token.createdAt)}
+                  {token.lastUsedAt && ` - Last Used: ${formatVietnamDate(token.lastUsedAt)}`}
                 </p>
               </div>
               <Button

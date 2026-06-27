@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { formatVietnamDate } from "@/lib/date-format";
 
 function formatRelativeTime(dateString: string) {
   const date = new Date(dateString);
@@ -18,7 +19,7 @@ function formatRelativeTime(dateString: string) {
   const diffDays = Math.floor(diffHrs / 24);
   if (diffDays < 30) return `${diffDays} day${diffDays > 1 ? "s" : ""} ago`;
   
-  return date.toLocaleDateString();
+  return formatVietnamDate(date);
 }
 
 export function FindingTimeline({ findingId }: { findingId: string }) {

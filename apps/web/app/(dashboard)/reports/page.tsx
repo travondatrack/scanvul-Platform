@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
+import { formatVietnamDateTime } from "@/lib/date-format";
 
 export default async function ReportsPage({ searchParams }: { searchParams: Promise<{ [key: string]: string | string[] | undefined }> }) {
   const user = await requireActiveUser();
@@ -119,7 +120,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
                         </div>
                       </td>
                       <td className="p-4 text-sm text-muted-foreground">
-                        {new Date(scan.createdAt).toLocaleString()}
+                        {formatVietnamDateTime(scan.createdAt)}
                       </td>
                       <td className="p-4 text-right">
                         <Link 

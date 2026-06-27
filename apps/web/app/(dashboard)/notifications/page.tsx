@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
+import { formatVietnamDateTime } from "@/lib/date-format";
 
 type NotificationItem = {
   id: string;
@@ -18,13 +19,6 @@ type NotificationItem = {
   createdAt: string;
   actedAt?: string | null;
 };
-
-function formatDate(value: string) {
-  return new Intl.DateTimeFormat(undefined, {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(new Date(value));
-}
 
 export default function NotificationsPage() {
   const [items, setItems] = useState<NotificationItem[]>([]);
@@ -126,7 +120,7 @@ export default function NotificationsPage() {
                       {item.status === "actioned" && <Badge variant="muted">Handled</Badge>}
                     </div>
                     <p className="text-sm text-muted-foreground">{item.message}</p>
-                    <p className="text-xs text-muted-foreground">{formatDate(item.createdAt)}</p>
+                    <p className="text-xs text-muted-foreground">{formatVietnamDateTime(item.createdAt)}</p>
                   </div>
 
                   <div className="flex shrink-0 flex-wrap gap-2">

@@ -6,6 +6,7 @@ import Link from "next/link";
 import { ShieldCheck, RefreshCw, AlertTriangle, Clock, FolderKanban, ChevronLeft, ChevronRight } from "lucide-react";
 import TriggerScanButton from "../../../../components/TriggerScanButton";
 import { AutoRefresher } from "../../../../components/AutoRefresher";
+import { formatVietnamDateTime } from "@/lib/date-format";
 
 const PAGE_SIZE = 10;
 
@@ -106,7 +107,7 @@ export default async function ProjectDetailPage({
                         <h4 className="font-bold text-foreground group-hover:text-brand transition-colors">
                           Scan {scan.id.split("-")[0]}...
                         </h4>
-                        <p className="text-xs text-muted-foreground/70">{new Date(scan.createdAt).toLocaleString()}</p>
+                        <p className="text-xs text-muted-foreground/70">{formatVietnamDateTime(scan.createdAt)}</p>
                       </div>
                     </div>
 

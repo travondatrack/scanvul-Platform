@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
+import { formatVietnamDate } from "@/lib/date-format";
 
 export default async function ProjectsPage() {
   const user = await requireActiveUser();
@@ -89,7 +90,7 @@ export default async function ProjectsPage() {
                     <Clock className="h-4 w-4" />
                     <span>
                       {project.scans.length > 0
-                        ? new Date(project.scans[0].createdAt).toLocaleDateString()
+                        ? formatVietnamDate(project.scans[0].createdAt)
                         : "No scans yet"}
                     </span>
                   </div>

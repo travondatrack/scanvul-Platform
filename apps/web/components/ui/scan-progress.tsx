@@ -4,6 +4,7 @@ import { CheckCircle2, CircleDashed, Loader2, XCircle, RefreshCw, Ban } from "lu
 import { useEffect, useMemo, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { formatVietnamTime } from "@/lib/date-format";
 
 const STALE_QUEUED_MS = 5 * 60 * 1000;  // 5 min in queue → stale
 const STALE_RUNNING_MS = 20 * 60 * 1000; // 20 min running → stale
@@ -235,7 +236,7 @@ export function ScanProgress({ scanId, initialStatus, projectId, repoUrl, source
       {(status === "queued" || status === "running") && !isStale && (
         <p className="mt-2 text-xs text-slate-500">
           Auto refreshes when the scan finishes
-          {lastUpdated ? `; last checked ${lastUpdated.toLocaleTimeString()}` : ""}.
+          {lastUpdated ? `; last checked ${formatVietnamTime(lastUpdated)}` : ""}.
         </p>
       )}
 

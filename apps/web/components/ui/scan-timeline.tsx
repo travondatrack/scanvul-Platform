@@ -1,6 +1,7 @@
 "use client";
 
 import { CheckCircle2, Clock, PlayCircle, AlertCircle } from "lucide-react";
+import { formatVietnamDateTime } from "@/lib/date-format";
 
 interface ScanEvent {
   id: string;
@@ -36,7 +37,7 @@ export function ScanTimeline({ events }: ScanTimelineProps) {
             </span>
             <div className="flex flex-col">
               <span className="text-sm font-bold text-foreground capitalize">{event.eventType.replace(/_/g, " ")}</span>
-              <span className="text-xs text-slate-400 mt-1">{new Date(event.createdAt).toLocaleString()}</span>
+              <span className="text-xs text-slate-400 mt-1">{formatVietnamDateTime(event.createdAt)}</span>
               {event.message && (
                 <p className="text-sm text-foreground mt-2 bg-muted/40 p-3 rounded-xl border border-border">
                   {event.message}
