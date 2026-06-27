@@ -3,7 +3,7 @@ import createNextIntlPlugin from "next-intl/plugin";
 const withNextIntl = createNextIntlPlugin("./i18n/request.ts");
 
 const nextConfig = {
-  serverExternalPackages: ["bcryptjs", "@prisma/client", "next-auth", "bcrypt"],
+  serverExternalPackages: ["bcryptjs", "@prisma/client", "bcrypt"],
   experimental: {
     reactCompiler: false,
   },
