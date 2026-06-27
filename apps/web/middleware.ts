@@ -10,8 +10,8 @@ const intlMiddleware = createIntlMiddleware({
   localePrefix: "as-needed",
 });
 
-const protectedPathPattern = /^\/(dashboard|projects|scans|reports|team)(\/.*)?$/;
-const protectedApiPattern = /^\/api\/(projects|organizations|scan|scans\/trigger|findings|v1)(\/.*)?$/;
+const protectedPathPattern = /^\/(dashboard|projects|scans|reports|team|notifications|settings)(\/.*)?$/;
+const protectedApiPattern = /^\/api\/(account|notifications|projects|organizations|scan|scans\/trigger|findings|v1)(\/.*)?$/;
 const localePathPattern = new RegExp(`^/(${locales.join("|")})(/.*)?$`);
 
 export default withAuth(

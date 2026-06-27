@@ -222,6 +222,21 @@ export default function TeamPage() {
   const canManageOrg = (org: Organization) =>
     org.myRole === "owner" || org.myRole === "admin";
 
+  const deleteOrg = async (org: Organization) => {
+    if (!confirm(`Delete ${org.name}? Members will lose access and receive a notification.`)) return;
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/organizations/${org.id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        alert(data.error || "Failed to delete organization");
+      }
+      await fetchOrgs();
+    } finally {
+      setLoading(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="space-y-6">
@@ -283,11 +298,23 @@ export default function TeamPage() {
                 <div className="flex items-center gap-3">
                   <RoleBadge role={org.myRole ?? "viewer"} />
                   {canManageOrg(org) && (
-                    <InviteMemberDialog 
-                      orgId={org.id} 
-                      orgName={org.name} 
-                      onSuccess={fetchOrgs} 
-                    />
+                    <>
+                      <InviteMemberDialog 
+                        orgId={org.id} 
+                        orgName={org.name} 
+                        onSuccess={fetchOrgs} 
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="text-destructive hover:text-destructive"
+                        onClick={() => deleteOrg(org)}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                        <span className="hidden sm:inline">Delete Team</span>
+                      </Button>
+                    </>
                   )}
                 </div>
               </div>

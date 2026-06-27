@@ -8,8 +8,20 @@ import bcrypt from "bcryptjs";
 import { isValidEmail, normalizeEmail } from "@/lib/auth-policy";
 import { checkRateLimit, rateLimitKey } from "@/lib/rate-limit";
 
-export const isGoogleAuthEnabled = Boolean(
-  process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET,
+function hasOAuthValue(value: string | undefined) {
+  if (!value) {
+    return false;
+  }
+
+  const normalized = value.trim().replace(/^['"]|['"]$/g, "").toLowerCase();
+  return Boolean(normalized)
+    && !normalized.startsWith("placeholder")
+    && !normalized.startsWith("change_me");
+}
+
+export const isGoogleAuthEnabled = (
+  hasOAuthValue(process.env.GOOGLE_CLIENT_ID)
+  && hasOAuthValue(process.env.GOOGLE_CLIENT_SECRET)
 );
 
 const providers: NextAuthOptions["providers"] = [
@@ -116,14 +128,25 @@ export const authOptions: NextAuthOptions = {
 
         const dbUser = await prisma.user.findUnique({
           where: { email },
-          select: { status: true, emailVerified: true },
+          select: { id: true, status: true, emailVerified: true },
         });
 
         if (!dbUser) {
           return true;
         }
 
-        return dbUser.status === "active" && Boolean(dbUser.emailVerified);
+        if (dbUser.status !== "active") {
+          return false;
+        }
+
+        if (!dbUser.emailVerified) {
+          await prisma.user.update({
+            where: { id: dbUser.id },
+            data: { emailVerified: new Date() },
+          });
+        }
+
+        return true;
       }
 
       const dbUser = await prisma.user.findUnique({

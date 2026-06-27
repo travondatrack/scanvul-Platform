@@ -44,7 +44,7 @@ export function InviteMemberDialog({
         body: JSON.stringify({ email, role }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to add member");
+      if (!res.ok) throw new Error(data.error || "Failed to send invite");
       
       setEmail("");
       setRole("member");
@@ -69,7 +69,7 @@ export function InviteMemberDialog({
           <DialogHeader>
             <DialogTitle>Invite to {orgName}</DialogTitle>
             <DialogDescription>
-              Invite a new member to join your organization. They will get access to all projects based on their role.
+              Send a team invitation notification. Access is granted only after they accept.
             </DialogDescription>
           </DialogHeader>
           

@@ -4,7 +4,7 @@ import { useSession, signOut } from "next-auth/react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import { LayoutDashboard, FolderKanban, FileText, Settings, ShieldAlert, LogOut, Loader2, Users } from "lucide-react";
+import { Bell, LayoutDashboard, FolderKanban, FileText, Settings, ShieldAlert, LogOut, Loader2, Users } from "lucide-react";
 import { ThemeToggle } from "../../components/ThemeToggle";
 import { OrgSwitcher } from "../../components/OrgSwitcher";
 import { Button } from "@/components/ui/button";
@@ -19,6 +19,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     { name: "Projects", href: "/projects", icon: FolderKanban },
     { name: "Scans & Reports", href: "/reports", icon: FileText },
     { name: "Team", href: "/team", icon: Users },
+    { name: "Notifications", href: "/notifications", icon: Bell },
     { name: "Rules & Policies", href: "/rules", icon: ShieldAlert },
     { name: "Settings", href: "/settings", icon: Settings },
   ];

@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { PageHeader } from "@/components/ui/page-header";
+import { DeleteAccountDialog } from "@/components/DeleteAccountDialog";
 
 export default async function SettingsPage() {
   const session = await getServerSession(authOptions);
@@ -104,11 +105,9 @@ export default async function SettingsPage() {
           <Card className="border-destructive/20 bg-destructive/5 p-6">
             <h2 className="text-lg font-bold text-destructive mb-2">Danger Zone</h2>
             <p className="text-sm text-muted-foreground mb-4">
-              Permanently delete your account and all associated data, projects, and scans.
+              Disable your account, revoke sign-in access, and anonymize your profile. Historical project and scan records are retained.
             </p>
-            <Button variant="destructive">
-              Delete Account
-            </Button>
+            <DeleteAccountDialog />
           </Card>
         </div>
       </div>

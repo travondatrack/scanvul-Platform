@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { normalizeEmail } from "@/lib/auth-policy";
+import { createNotification } from "@/lib/notifications";
 import { prisma } from "@/lib/prisma";
 import { requireActiveUser } from "@/lib/session";
 
@@ -81,22 +82,48 @@ export async function POST(
       return NextResponse.json({ error: "Valid email and role are required" }, { status: 400 });
     }
 
-    const targetUser = await prisma.user.findUnique({
-      where: { email },
-      select: { id: true },
-    });
+    const [organization, targetUser] = await Promise.all([
+      prisma.organization.findUnique({
+        where: { id },
+        select: { id: true, name: true },
+      }),
+      prisma.user.findUnique({
+        where: { email },
+        select: { id: true, email: true },
+      }),
+    ]);
+
+    if (!organization) {
+      return NextResponse.json({ error: "Organization not found" }, { status: 404 });
+    }
 
     if (!targetUser) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    const membership = await prisma.organizationMember.upsert({
+    const existingMembership = await prisma.organizationMember.findUnique({
       where: { organizationId_userId: { organizationId: id, userId: targetUser.id } },
-      update: { role },
-      create: { organizationId: id, userId: targetUser.id, role },
+      select: { id: true },
     });
 
-    return NextResponse.json(membership, { status: 201 });
+    if (existingMembership) {
+      return NextResponse.json({ error: "User is already a member" }, { status: 400 });
+    }
+
+    const notification = await createNotification({
+      userId: targetUser.id,
+      type: "team_invite",
+      title: "You were invited to a team",
+      message: `${user.name || user.email || "A team owner"} invited you to join ${organization.name} as ${role}.`,
+      payload: {
+        organizationId: organization.id,
+        organizationName: organization.name,
+        role,
+        invitedBy: user.id,
+      },
+    });
+
+    return NextResponse.json({ notification }, { status: 201 });
   } catch (error) {
     if (error instanceof Error && error.message === "UNAUTHORIZED") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

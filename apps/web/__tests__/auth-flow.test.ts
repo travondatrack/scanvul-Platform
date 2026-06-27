@@ -143,6 +143,29 @@ describe("authentication flow", () => {
     });
   });
 
+  test("Google sign-in verifies an active user with matching unverified email", async () => {
+    const { authOptions } = await importAuthWithEnv("google-client", "google-secret");
+
+    mockPrisma.user.findUnique.mockResolvedValue({
+      id: "user-google",
+      status: "active",
+      emailVerified: null,
+    } as never);
+    mockPrisma.user.update.mockResolvedValue({ id: "user-google" } as never);
+
+    const result = await authOptions.callbacks!.signIn!({
+      user: { id: "google-profile", email: "Google@Example.com", name: "Google User" },
+      account: { provider: "google", type: "oauth", providerAccountId: "google-profile" },
+      profile: { email_verified: true },
+    } as any);
+
+    expect(result).toBe(true);
+    expect(mockPrisma.user.update).toHaveBeenCalledWith({
+      where: { id: "user-google" },
+      data: { emailVerified: expect.any(Date) },
+    });
+  });
+
   test("wrong OTP increments attempts and rejects at the attempt limit", async () => {
     const otpHash = await bcrypt.hash("123456", 10);
     mockPrisma.emailVerificationOtp.findFirst.mockResolvedValue({
