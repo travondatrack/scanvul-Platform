@@ -337,7 +337,7 @@ model ScannerPolicy {
   id                        String       @id @default(cuid())
   organizationId            String?      @map("organization_id")
   projectId                 String?      @map("project_id")
-  enabledEngines            String       @default("[\"semgrep\",\"bandit\",\"eslint\",\"owasp\",\"trivy\",\"secrets\"]") @map("enabled_engines") @db.Text
+  enabledEngines            String       @map("enabled_engines") @db.Text
   severityThreshold         String       @default("Info") @map("severity_threshold")
   ruleOverrides             String?      @map("rule_overrides") @db.Text
   aiTriageEnabled           Boolean      @default(true) @map("ai_triage_enabled")
