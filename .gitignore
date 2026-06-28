@@ -30,3 +30,5 @@ storage/tmp/
 apps/api/storage/
 apps/api/codeguard.db
 apps/api/codeguard.db-*
+
+.vercel
