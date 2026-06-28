@@ -1,75 +1,64 @@
-# Admin RBAC & Security Architecture for ScanVul AI
+# ScanVul AI - Admin RBAC & Break-Glass Security Architecture
 
-This document details the Role-Based Access Control (RBAC), permission boundaries, immutable audit logging, and sensitive data protection enforced across the ScanVul AI platform for administrative accounts.
+## 1. Executive Summary & Core Security Philosophy
+In ScanVul AI, our paramount principle is **Least Privilege and Customer Data Privacy**. Although Global Administrators (`admin`, `super_admin`) hold system-wide responsibility for operational health, monitoring, and user management, **they do not possess default or blanket access to customer private data**.
 
----
-
-## 1. Role Classification (`roleGlobal`)
-
-Global administrative access is governed by the `roleGlobal` column on the `User` table.
-
-- **`user`**: Standard authenticated account. Restricted to personal workspace and organization memberships.
-- **`admin`**: Global system administrator. Granted operational oversight, user account lifecycle control, and system health monitoring.
-- **`support_admin`**: Customer technical support tier (read-only diagnostics and non-destructive assistance).
-- **`security_admin`**: Specialized role focused on platform vulnerability policies, global scanner overrides, and rule engines.
-- **`super_admin`**: Root authority capable of managing other global administrators and overriding strict system limits.
+Traditional SaaS platforms often implement "Global RBAC Bypass," allowing administrators unrestricted access to private tenant repositories, vulnerability reports, and CI/CD secrets. ScanVul AI strictly rejects this pattern to protect customer intellectual property and sensitive credentials against insider threats and compromised administrator credentials.
 
 ---
 
-## 2. Permitted Admin Capabilities (What Admins CAN Do)
+## 2. Default Administrative Boundaries
 
-Global Administrators (`admin`, `super_admin`) are explicitly authorized to:
-- **System Health & Engines**: View operational status of FastAPI scanner workers, MySQL database connections, and scanner availability (Semgrep, Bandit, ESLint, Trivy).
-- **User Lifecycle Management**: Inspect basic account metadata (`id`, `name`, `email`, `roleGlobal`, `status`, timestamps). Lock/unlock suspicious or inactive accounts (`active` ↔ `disabled` / `suspended`).
-- **Role Administration**: Assign global roles to standard accounts (protected by hierarchical constraints).
-- **High-Level Overview**: View metadata lists of Organizations and Projects without exposing codebases or tokens.
-- **Scan Debugging & Intervention**: Inspect stuck, failed, or queued scan jobs. Force-cancel hanging jobs.
-- **Immutable Audit Inspection**: Review system-wide audit records and administrative actions.
+### Allowed by Default (Metadata & Operations)
+Within `/admin` and `/api/admin/*`, global administrators can perform system upkeep:
+- **Organizations & Projects**: View metadata (names, slugs, branch names, membership counts, creation dates).
+- **Scans**: Inspect scan execution status, queue durations, runtime errors, and cancel hanging/stuck jobs.
+- **Users**: View user profile status, lock/unlock accounts, and assign roles (subject to separation-of-duties protections).
+- **System Health & Audit**: Monitor AI integration status, database health, and inspect immutable audit logs.
 
----
-
-## 3. Enforced Admin Restrictions (What Admins CANNOT Do)
-
-To prevent privilege abuse and maintain compliance, the system enforces hard cryptographic and RBAC barriers against administrators:
-- **No Plaintext Passwords or Tokens**: API endpoints and UI tables never serialize or transmit plaintext passwords, password hashes (`password`), API tokens (`tokenHash`), or NextAuth tokens (`access_token`, `refresh_token`, `id_token`).
-- **No Source Code Access**: Admins cannot browse or download private project repositories or proprietary source code without explicit, auditable support grant tokens.
-- **No Secret Unmasking**: Raw secrets detected by scanner engines (e.g. AWS keys, API keys) are masked before display.
-- **No Silent Destructive Actions**: Projects, users, and organizations cannot be hard-deleted without extensive multi-step confirmation and audit trails. Soft-disabling (`status = disabled`) is prioritized.
-- **No Audit Log Tampering**: All endpoints under `/api/admin/audit-events` are strictly read-only. Modification or deletion of historical `AuditEvent` records is programmatically blocked.
-- **No Last-Admin Lockout**: System logic actively prevents demoting or locking the last remaining active `admin` or `super_admin` account.
-- **No Unprivileged Elevation**: Standard `admin` accounts cannot self-promote to `super_admin` or grant `super_admin` privileges to third parties.
+### Strictly Forbidden by Default
+Without explicit authorization, global administrators **cannot**:
+- View private repository source code, files, or snippets.
+- Read vulnerability finding details containing unmasked secrets, environment variables, or API keys.
+- Access raw CI/CD integration tokens, OAuth tokens, or password hashes.
+- Modify project scanner policies or triage findings on behalf of customers.
+- Permanently purge audit event histories or self-promote their own administrative privileges.
 
 ---
 
-## 4. Admin API Endpoints
+## 3. Break-Glass Support Access Mechanism
 
-All endpoints require active global admin authentication via `requireGlobalAdmin()`.
+When a customer opens a support ticket requiring deep technical investigation (e.g., false positive debugging or custom rule tuning), a authorized **Super Administrator** (`super_admin`) can activate **Break-Glass Support Access**.
 
-| HTTP Method | Endpoint | Description | Audit Event Logged |
-| :--- | :--- | :--- | :--- |
-| `GET` | `/api/admin/stats` | System overview stats (users, projects, active scans, findings breakdown). | None (passive read) |
-| `GET` | `/api/admin/users` | Paginated list of users with search and filters. | None (passive read) |
-| `PATCH` | `/api/admin/users/[id]/status` | Lock or unlock target user account. | `ADMIN_USER_LOCKED` / `ADMIN_USER_UNLOCKED` |
-| `PATCH` | `/api/admin/users/[id]/role` | Promote or demote user global role. | `ADMIN_USER_ROLE_CHANGED` |
-| `GET` | `/api/admin/organizations` | Paginated list of organizations metadata. | `ADMIN_ORG_VIEWED` |
-| `GET` | `/api/admin/projects` | Paginated list of projects metadata. | `ADMIN_PROJECT_VIEWED` |
-| `GET` | `/api/admin/scans` | List and filter scan executions and failure traces. | None (passive read) |
-| `POST` | `/api/admin/scans/[id]/cancel` | Force-cancel a hanging or queued scan job. | `ADMIN_SCAN_CANCELLED` |
-| `GET` | `/api/admin/audit-events` | Read-only paginated audit log queries. | None (passive read) |
+### How It Works
+1. **Explicit Authorization**: Only `super_admin` accounts can issue a break-glass grant.
+2. **Target Scoped**: Access must be explicitly bound to a specific `projectId` or `organizationId`.
+3. **Time-Bound**: Grants automatically expire after a predefined TTL (e.g., 30 minutes to 24 hours).
+4. **Scope Restricted**: Grants specify precise capabilities:
+   - `view_metadata`: Enhanced inspection of project settings.
+   - `view_findings`: Inspect vulnerability findings (sensitive tokens remain masked).
+   - `view_source`: Temporary access to code snippets required for triage.
+   - `manage_scan`: Trigger or re-run specific scans.
+   - `manage_policy`: Modify rule overrides to assist customer onboarding.
+5. **Mandatory Justification**: A detailed, verifiable business reason (e.g., ticket ID) must be provided.
 
 ---
 
-## 5. Audit Logging Policy
+## 4. Immutable Audit Logging
 
-Every administrative intervention modifying state or querying privileged metadata generates an immutable record in the `AuditEvent` table.
+Every administrative action and break-glass lifecycle event produces an immutable record in the `audit_events` database table.
 
-### Registered Action Constants (`ADMIN_AUDIT_ACTIONS`)
-- `ADMIN_USER_LOCKED`
-- `ADMIN_USER_UNLOCKED`
-- `ADMIN_USER_ROLE_CHANGED`
-- `ADMIN_SCAN_CANCELLED`
-- `ADMIN_PROJECT_VIEWED`
-- `ADMIN_ORG_VIEWED`
-- `ADMIN_HEALTH_VIEWED`
-- `ADMIN_SETTINGS_UPDATED`
-- `ADMIN_SUPPORT_ACCESS_USED`
+### Monitored Actions
+- `ADMIN_SUPPORT_ACCESS_GRANTED`: Logged when break-glass access is initialized (includes actor, target, scopes, duration, reason).
+- `ADMIN_SUPPORT_ACCESS_REVOKED`: Logged when support access is manually terminated early.
+- `ADMIN_USER_LOCKED` / `ADMIN_USER_UNLOCKED`: Account status modifications.
+- `ADMIN_USER_ROLE_CHANGED`: Role elevation or demotion events.
+- `ADMIN_SCAN_CANCELLED`: Manual termination of stuck scan jobs.
+
+Audit events cannot be modified or deleted via any user-facing or administrative API.
+
+---
+
+## 5. Separation of Duties & Protections
+- **No Self-Promotion**: An administrator cannot elevate their own role from `admin` to `super_admin`.
+- **Last Admin Protection**: The system blocks disabling, suspending, or demoting the last active global administrator account to prevent accidental system lockout.

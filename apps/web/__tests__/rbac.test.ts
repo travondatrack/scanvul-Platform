@@ -44,6 +44,7 @@ const prismaMock = {
   },
   finding: {
     findFirst: jest.fn(),
+    findUnique: jest.fn(),
     update: jest.fn(),
     count: jest.fn(),
     findMany: jest.fn(),
@@ -58,6 +59,11 @@ const prismaMock = {
     upsert: jest.fn(),
     delete: jest.fn(),
     updateMany: jest.fn(),
+  },
+  adminSupportAccess: {
+    findMany: jest.fn(),
+    create: jest.fn(),
+    update: jest.fn(),
   },
   $transaction: jest.fn(),
 };
@@ -237,46 +243,49 @@ describe("Org Viewer Restrictions", () => {
 // SUITE 4: Global Admin bypasses all checks
 // ────────────────────────────────────────────────────────────────────────────
 
-describe("Global Admin Bypass", () => {
-  test("Global admin can view any project without membership", async () => {
+describe("Global Admin Restricted RBAC & Break-Glass Support Access", () => {
+  test("Global admin without membership or support access cannot view private project detail", async () => {
     mockUserRole(ADMIN.id, "admin");
-    // Note: findFirst should NOT be called for admin
+    mockProjectAccess(false);
+    (prismaMock.project.findUnique as jest.MockedFunction<typeof prismaMock.project.findUnique>).mockResolvedValue({ organizationId: "org-1" } as never);
+    (prismaMock.adminSupportAccess.findMany as jest.MockedFunction<typeof prismaMock.adminSupportAccess.findMany>).mockResolvedValue([]);
+
+    const result = await canViewProject(ADMIN.id, PROJECT_A_ID);
+    expect(result).toBe(false);
+  });
+
+  test("Global admin with active support access (view_findings) can view project", async () => {
+    mockUserRole(ADMIN.id, "admin");
+    mockProjectAccess(false);
+    (prismaMock.project.findUnique as jest.MockedFunction<typeof prismaMock.project.findUnique>).mockResolvedValue({ organizationId: "org-1" } as never);
+    (prismaMock.adminSupportAccess.findMany as jest.MockedFunction<typeof prismaMock.adminSupportAccess.findMany>).mockResolvedValue([
+      { id: "acc-1", actorId: ADMIN.id, projectId: PROJECT_A_ID, scopes: JSON.stringify(["view_findings"]), expiresAt: new Date(Date.now() + 3600000) } as never
+    ]);
 
     const result = await canViewProject(ADMIN.id, PROJECT_A_ID);
     expect(result).toBe(true);
-    expect(prismaMock.project.findFirst).not.toHaveBeenCalled();
   });
 
-  test("Global admin can manage any project", async () => {
+  test("Global admin with expired support access cannot view project", async () => {
     mockUserRole(ADMIN.id, "admin");
+    mockProjectAccess(false);
+    (prismaMock.project.findUnique as jest.MockedFunction<typeof prismaMock.project.findUnique>).mockResolvedValue({ organizationId: "org-1" } as never);
+    (prismaMock.adminSupportAccess.findMany as jest.MockedFunction<typeof prismaMock.adminSupportAccess.findMany>).mockResolvedValue([]);
+
+    const result = await canViewProject(ADMIN.id, PROJECT_A_ID);
+    expect(result).toBe(false);
+  });
+
+  test("Global admin with wrong support access scope cannot manage project", async () => {
+    mockUserRole(ADMIN.id, "admin");
+    mockProjectAccess(false);
+    (prismaMock.project.findUnique as jest.MockedFunction<typeof prismaMock.project.findUnique>).mockResolvedValue({ organizationId: "org-1" } as never);
+    (prismaMock.adminSupportAccess.findMany as jest.MockedFunction<typeof prismaMock.adminSupportAccess.findMany>).mockResolvedValue([
+      { id: "acc-1", actorId: ADMIN.id, projectId: PROJECT_A_ID, scopes: JSON.stringify(["view_metadata"]), expiresAt: new Date(Date.now() + 3600000) } as never
+    ]);
 
     const result = await canManageProject(ADMIN.id, PROJECT_A_ID);
-    expect(result).toBe(true);
-    expect(prismaMock.project.findFirst).not.toHaveBeenCalled();
-  });
-
-  test("Global admin can trigger scan on any project", async () => {
-    mockUserRole(ADMIN.id, "admin");
-
-    const result = await canTriggerScan(ADMIN.id, PROJECT_A_ID);
-    expect(result).toBe(true);
-    expect(prismaMock.project.findFirst).not.toHaveBeenCalled();
-  });
-
-  test("Global admin can view any scan", async () => {
-    mockUserRole(ADMIN.id, "admin");
-
-    const result = await canViewScan(ADMIN.id, SCAN_A_ID);
-    expect(result).toBe(true);
-    expect(prismaMock.scan.findFirst).not.toHaveBeenCalled();
-  });
-
-  test("Global admin can manage any finding", async () => {
-    mockUserRole(ADMIN.id, "admin");
-
-    const result = await canManageFinding(ADMIN.id, FINDING_A_ID);
-    expect(result).toBe(true);
-    expect(prismaMock.finding.findFirst).not.toHaveBeenCalled();
+    expect(result).toBe(false);
   });
 });
 

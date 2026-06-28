@@ -7,6 +7,8 @@ const VIEW_ROLES: OrganizationRole[] = ["owner", "admin", "member", "viewer"];
 const MANAGE_ROLES: OrganizationRole[] = ["owner", "admin"];
 const TRIGGER_ROLES: OrganizationRole[] = ["owner", "admin", "member"];
 
+export type SupportScope = "view_metadata" | "view_findings" | "view_source" | "manage_scan" | "manage_policy";
+
 export async function isGlobalAdmin(userId: string) {
   const user = await prisma.user.findUnique({
     where: { id: userId },
@@ -14,6 +16,59 @@ export async function isGlobalAdmin(userId: string) {
   });
 
   return user?.status === "active" && (user.roleGlobal === "admin" || user.roleGlobal === "super_admin");
+}
+
+export async function isSuperAdmin(userId: string) {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { roleGlobal: true, status: true },
+  });
+
+  return user?.status === "active" && user.roleGlobal === "super_admin";
+}
+
+export async function getActiveSupportAccess(actorId: string, target: { projectId?: string; organizationId?: string }) {
+  if (!(await isGlobalAdmin(actorId))) return null;
+  if (!target.projectId && !target.organizationId) return null;
+
+  const now = new Date();
+  const accessList = await prisma.adminSupportAccess.findMany({
+    where: {
+      actorId,
+      expiresAt: { gt: now },
+      revokedAt: null,
+      OR: [
+        target.projectId ? { projectId: target.projectId } : undefined,
+        target.organizationId ? { organizationId: target.organizationId } : undefined,
+      ].filter(Boolean) as any,
+    },
+  });
+
+  return accessList.length > 0 ? accessList : null;
+}
+
+export async function hasSupportAccessScope(
+  actorId: string,
+  target: { projectId?: string; organizationId?: string },
+  requiredScope: SupportScope
+): Promise<boolean> {
+  const accessList = await getActiveSupportAccess(actorId, target);
+  if (!accessList) return false;
+
+  for (const acc of accessList) {
+    try {
+      const scopes: string[] = JSON.parse(acc.scopes);
+      if (Array.isArray(scopes) && (scopes.includes(requiredScope) || scopes.includes("all"))) {
+        return true;
+      }
+    } catch {
+      if (acc.scopes.split(",").map((s) => s.trim()).includes(requiredScope)) {
+        return true;
+      }
+    }
+  }
+
+  return false;
 }
 
 function rolesFor(action: ProjectAction) {
@@ -61,14 +116,6 @@ export function projectScopeWhere(
   orgCtx?: { type: string, id?: string }
 ) {
   const scopeId = orgCtx?.type === "personal" ? null : (orgCtx?.id ?? undefined);
-  
-  if (user.roleGlobal === "admin" || user.roleGlobal === "super_admin") {
-    if (scopeId !== undefined) {
-      return { organizationId: scopeId };
-    }
-    return undefined; // All projects for admin if no scope
-  }
-  
   return accessibleProjectWhere(user.id, action, scopeId);
 }
 
@@ -88,64 +135,113 @@ export function scanScopeWhere(
   orgCtx?: { type: string, id?: string }
 ) {
   const scopeId = orgCtx?.type === "personal" ? null : (orgCtx?.id ?? undefined);
-  
-  if (user.roleGlobal === "admin" || user.roleGlobal === "super_admin") {
-    if (scopeId !== undefined) {
-      return { project: { organizationId: scopeId } };
-    }
-    return undefined;
-  }
-  
   return accessibleScanWhere(user.id, action, scopeId);
 }
 
 export async function canViewProject(userId: string, projectId: string) {
-  if (await isGlobalAdmin(userId)) return true;
   const project = await prisma.project.findFirst({
     where: { id: projectId, ...accessibleProjectWhere(userId, "view") },
-    select: { id: true },
+    select: { id: true, organizationId: true },
   });
-  return Boolean(project);
+  if (project) return true;
+
+  if (await isGlobalAdmin(userId)) {
+    const target = await prisma.project.findUnique({
+      where: { id: projectId },
+      select: { organizationId: true },
+    });
+    if (target) {
+      return (
+        (await hasSupportAccessScope(userId, { projectId, organizationId: target.organizationId ?? undefined }, "view_findings")) ||
+        (await hasSupportAccessScope(userId, { projectId, organizationId: target.organizationId ?? undefined }, "view_metadata")) ||
+        (await hasSupportAccessScope(userId, { projectId, organizationId: target.organizationId ?? undefined }, "view_source"))
+      );
+    }
+  }
+  return false;
 }
 
 export async function canManageProject(userId: string, projectId: string) {
-  if (await isGlobalAdmin(userId)) return true;
   const project = await prisma.project.findFirst({
     where: { id: projectId, ...accessibleProjectWhere(userId, "manage") },
-    select: { id: true },
+    select: { id: true, organizationId: true },
   });
-  return Boolean(project);
+  if (project) return true;
+
+  if (await isGlobalAdmin(userId)) {
+    const target = await prisma.project.findUnique({
+      where: { id: projectId },
+      select: { organizationId: true },
+    });
+    if (target) {
+      return await hasSupportAccessScope(userId, { projectId, organizationId: target.organizationId ?? undefined }, "manage_policy");
+    }
+  }
+  return false;
 }
 
 export async function canTriggerScan(userId: string, projectId: string) {
-  if (await isGlobalAdmin(userId)) return true;
   const project = await prisma.project.findFirst({
     where: { id: projectId, ...accessibleProjectWhere(userId, "trigger_scan") },
-    select: { id: true },
+    select: { id: true, organizationId: true },
   });
-  return Boolean(project);
+  if (project) return true;
+
+  if (await isGlobalAdmin(userId)) {
+    const target = await prisma.project.findUnique({
+      where: { id: projectId },
+      select: { organizationId: true },
+    });
+    if (target) {
+      return await hasSupportAccessScope(userId, { projectId, organizationId: target.organizationId ?? undefined }, "manage_scan");
+    }
+  }
+  return false;
 }
 
 export async function canViewScan(userId: string, scanId: string) {
-  if (await isGlobalAdmin(userId)) return true;
   const scan = await prisma.scan.findFirst({
     where: { id: scanId, ...accessibleScanWhere(userId, "view") },
-    select: { id: true },
+    select: { id: true, projectId: true },
   });
-  return Boolean(scan);
+  if (scan) return true;
+
+  if (await isGlobalAdmin(userId)) {
+    const targetScan = await prisma.scan.findUnique({
+      where: { id: scanId },
+      select: { projectId: true, project: { select: { organizationId: true } } },
+    });
+    if (targetScan && targetScan.projectId) {
+      return (
+        (await hasSupportAccessScope(userId, { projectId: targetScan.projectId, organizationId: targetScan.project?.organizationId ?? undefined }, "view_findings")) ||
+        (await hasSupportAccessScope(userId, { projectId: targetScan.projectId, organizationId: targetScan.project?.organizationId ?? undefined }, "view_metadata")) ||
+        (await hasSupportAccessScope(userId, { projectId: targetScan.projectId, organizationId: targetScan.project?.organizationId ?? undefined }, "view_source"))
+      );
+    }
+  }
+  return false;
 }
 
 export async function canManageScan(userId: string, scanId: string) {
-  if (await isGlobalAdmin(userId)) return true;
   const scan = await prisma.scan.findFirst({
     where: { id: scanId, ...accessibleScanWhere(userId, "manage") },
-    select: { id: true },
+    select: { id: true, projectId: true },
   });
-  return Boolean(scan);
+  if (scan) return true;
+
+  if (await isGlobalAdmin(userId)) {
+    const targetScan = await prisma.scan.findUnique({
+      where: { id: scanId },
+      select: { projectId: true, project: { select: { organizationId: true } } },
+    });
+    if (targetScan && targetScan.projectId) {
+      return await hasSupportAccessScope(userId, { projectId: targetScan.projectId, organizationId: targetScan.project?.organizationId ?? undefined }, "manage_scan");
+    }
+  }
+  return false;
 }
 
 export async function canManageFinding(userId: string, findingId: string) {
-  if (await isGlobalAdmin(userId)) return true;
   const finding = await prisma.finding.findFirst({
     where: {
       id: findingId,
@@ -153,7 +249,18 @@ export async function canManageFinding(userId: string, findingId: string) {
     },
     select: { id: true },
   });
-  return Boolean(finding);
+  if (finding) return true;
+
+  if (await isGlobalAdmin(userId)) {
+    const targetFinding = await prisma.finding.findUnique({
+      where: { id: findingId },
+      select: { projectId: true, project: { select: { organizationId: true } } },
+    });
+    if (targetFinding && targetFinding.projectId) {
+      return await hasSupportAccessScope(userId, { projectId: targetFinding.projectId, organizationId: targetFinding.project?.organizationId ?? undefined }, "manage_policy");
+    }
+  }
+  return false;
 }
 
 export async function getEligibleProjectAssignees(projectId: string) {

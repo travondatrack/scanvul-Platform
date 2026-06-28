@@ -5,6 +5,7 @@ import { FolderKanban, RefreshCw, Loader2, GitBranch, ShieldAlert } from "lucide
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { SupportAccessBanner } from "@/components/ui/support-access-banner";
 
 type ProjectItem = {
   id: string;
@@ -57,6 +58,8 @@ export function AdminProjectsClient() {
           <RefreshCw className="w-4 h-4" /> Refresh
         </Button>
       </div>
+
+      <SupportAccessBanner />
 
       <div className="flex gap-3 max-w-md">
         <Input

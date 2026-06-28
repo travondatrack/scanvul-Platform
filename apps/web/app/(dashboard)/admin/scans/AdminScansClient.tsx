@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { ShieldCheck, RefreshCw, Loader2, XCircle, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { SupportAccessBanner } from "@/components/ui/support-access-banner";
 
 type ScanItem = {
   id: string;
@@ -77,6 +78,8 @@ export function AdminScansClient() {
           <RefreshCw className="w-4 h-4" /> Refresh
         </Button>
       </div>
+
+      <SupportAccessBanner />
 
       <div className="flex gap-2">
         {["", "queued", "running", "completed", "failed", "cancelled"].map((st) => (

@@ -35,6 +35,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       return NextResponse.json({ error: "Only super_admin can modify super_admin role" }, { status: 403 });
     }
 
+    if (actor.id === targetUserId && (role === "super_admin" || (actor.roleGlobal !== "super_admin" && role === "admin"))) {
+      return NextResponse.json({ error: "Cannot promote your own global role" }, { status: 403 });
+    }
+
     // Check last admin protection if demoting an admin or super_admin
     if ((targetUser.roleGlobal === "admin" || targetUser.roleGlobal === "super_admin") && role !== "admin" && role !== "super_admin") {
       const activeAdminsCount = await prisma.user.count({

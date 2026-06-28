@@ -352,3 +352,19 @@ model ScannerPolicy {
   @@unique([projectId], map: "scanner_policies_project_id_key")
   @@map("scanner_policies")
 }
+
+model AdminSupportAccess {
+  id             String    @id @default(cuid())
+  actorId        String    @map("actor_id")
+  organizationId String?   @map("organization_id")
+  projectId      String?   @map("project_id")
+  scopes         String    @db.Text
+  reason         String    @db.Text
+  expiresAt      DateTime  @map("expires_at")
+  revokedAt      DateTime? @map("revoked_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  @@index([actorId, expiresAt, revokedAt], map: "admin_support_access_actor_idx")
+  @@map("admin_support_access")
+}
