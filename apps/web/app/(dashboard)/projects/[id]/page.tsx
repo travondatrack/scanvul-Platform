@@ -49,6 +49,54 @@ export default async function ProjectDetailPage({
   const totalPages = Math.max(1, Math.ceil(totalScans / PAGE_SIZE));
   const hasRunningScans = scans.some(s => s.status === "queued" || s.status === "running");
   const canTrigger = await canTriggerScan(user.id, project.id);
+  const [latestScans, scannerPolicy] = await Promise.all([
+    prisma.scan.findMany({
+      where: { projectId: project.id },
+      orderBy: { createdAt: "desc" },
+      take: 6,
+      include: {
+        findings: {
+          select: {
+            id: true,
+            severity: true,
+            status: true,
+            filePath: true,
+            engine: true,
+            owaspCategory: true,
+            dedupeHash: true,
+            ruleId: true,
+            lineNumber: true,
+          },
+        },
+      },
+    }),
+    prisma.scannerPolicy.findFirst({ where: { projectId: project.id } }),
+  ]);
+  const latestScan = latestScans[0];
+  const previousScan = latestScans[1];
+  const unresolvedHighCritical = latestScan?.findings.filter((f) =>
+    ["critical", "high"].includes(f.severity.toLowerCase()) &&
+    !["fixed", "false_positive", "ignored"].includes(f.status)
+  ).length ?? 0;
+  const topFiles = Object.entries((latestScan?.findings ?? []).reduce<Record<string, number>>((acc, f) => {
+    acc[f.filePath] = (acc[f.filePath] ?? 0) + 1;
+    return acc;
+  }, {})).sort((a, b) => b[1] - a[1]).slice(0, 5);
+  const byEngine = Object.entries((latestScan?.findings ?? []).reduce<Record<string, number>>((acc, f) => {
+    acc[f.engine] = (acc[f.engine] ?? 0) + 1;
+    return acc;
+  }, {})).sort((a, b) => b[1] - a[1]).slice(0, 5);
+  const byOwasp = Object.entries((latestScan?.findings ?? []).reduce<Record<string, number>>((acc, f) => {
+    const key = f.owaspCategory || "Unmapped";
+    acc[key] = (acc[key] ?? 0) + 1;
+    return acc;
+  }, {})).sort((a, b) => b[1] - a[1]).slice(0, 5);
+  const currentKeys = new Set((latestScan?.findings ?? []).map((f) => f.dedupeHash || `${f.ruleId}:${f.filePath}:${f.lineNumber}`));
+  const previousKeys = new Set((previousScan?.findings ?? []).map((f) => f.dedupeHash || `${f.ruleId}:${f.filePath}:${f.lineNumber}`));
+  const newFindings = [...currentKeys].filter((key) => !previousKeys.has(key)).length;
+  const fixedFindings = [...previousKeys].filter((key) => !currentKeys.has(key)).length;
+  const unchangedFindings = [...currentKeys].filter((key) => previousKeys.has(key)).length;
+  const riskTrend = latestScans.slice(0, 5).map((scan) => Math.round(scan.riskPercent ?? 0)).reverse();
 
   const buildPageUrl = (p: number) => `?page=${p}`;
 
@@ -68,6 +116,72 @@ export default async function ProjectDetailPage({
           </p>
         </div>
         {canTrigger && <TriggerScanButton projectId={project.id} repoUrl={project.repoUrl || ""} />}
+      </div>
+
+      {/* Security Overview */}
+      <div className="grid gap-4 lg:grid-cols-3">
+        <div className="bg-card text-card-foreground border border-border rounded-xl p-5 shadow-sm lg:col-span-2">
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-xl font-bold text-foreground">Security Overview</h2>
+            {latestScan && <Link href={`/scan/${latestScan.id}`} className="text-sm font-bold text-brand hover:underline">Open latest scan</Link>}
+          </div>
+          <div className="grid gap-3 sm:grid-cols-4">
+            <div className="rounded-lg border border-border bg-muted/30 p-3">
+              <p className="text-xs uppercase text-muted-foreground">Latest status</p>
+              <p className="mt-1 font-bold capitalize">{latestScan?.status ?? "No scan"}</p>
+            </div>
+            <div className="rounded-lg border border-border bg-muted/30 p-3">
+              <p className="text-xs uppercase text-muted-foreground">Risk</p>
+              <p className="mt-1 font-bold">{latestScan?.riskLevel ?? "Unknown"} {latestScan?.riskPercent != null ? `(${latestScan.riskPercent.toFixed(0)}%)` : ""}</p>
+            </div>
+            <div className="rounded-lg border border-border bg-muted/30 p-3">
+              <p className="text-xs uppercase text-muted-foreground">Critical/High open</p>
+              <p className="mt-1 font-bold text-orange-400">{unresolvedHighCritical}</p>
+            </div>
+            <div className="rounded-lg border border-border bg-muted/30 p-3">
+              <p className="text-xs uppercase text-muted-foreground">Last duration</p>
+              <p className="mt-1 font-bold">{latestScan?.durationMs ? `${Math.round(latestScan.durationMs / 1000)}s` : "N/A"}</p>
+            </div>
+          </div>
+          <div className="mt-4 grid gap-4 md:grid-cols-3">
+            <div>
+              <p className="mb-2 text-xs font-bold uppercase text-muted-foreground">Top vulnerable files</p>
+              <div className="space-y-1 text-sm">{topFiles.length ? topFiles.map(([file, count]) => <p key={file} className="truncate"><span className="font-bold">{count}</span> {file}</p>) : <p className="text-muted-foreground">No findings.</p>}</div>
+            </div>
+            <div>
+              <p className="mb-2 text-xs font-bold uppercase text-muted-foreground">By engine</p>
+              <div className="space-y-1 text-sm">{byEngine.length ? byEngine.map(([engine, count]) => <p key={engine}><span className="font-bold">{count}</span> {engine}</p>) : <p className="text-muted-foreground">No findings.</p>}</div>
+            </div>
+            <div>
+              <p className="mb-2 text-xs font-bold uppercase text-muted-foreground">By OWASP</p>
+              <div className="space-y-1 text-sm">{byOwasp.length ? byOwasp.map(([cat, count]) => <p key={cat} className="truncate"><span className="font-bold">{count}</span> {cat}</p>) : <p className="text-muted-foreground">No mapped findings.</p>}</div>
+            </div>
+          </div>
+          <div className="mt-4 flex items-end gap-1 rounded-lg border border-border bg-muted/20 p-3">
+            {riskTrend.length ? riskTrend.map((value, index) => (
+              <div key={`${value}-${index}`} className="w-8 rounded-t bg-brand" style={{ height: `${Math.max(6, value)}px` }} title={`${value}%`} />
+            )) : <p className="text-sm text-muted-foreground">Risk trend will appear after scans.</p>}
+          </div>
+        </div>
+        <div className="bg-card text-card-foreground border border-border rounded-xl p-5 shadow-sm">
+          <h2 className="text-xl font-bold text-foreground">Compare Scans</h2>
+          {latestScan && previousScan ? (
+            <div className="mt-4 grid gap-3">
+              <p className="text-sm text-muted-foreground">Compared latest scan with the previous scan.</p>
+              <div className="grid grid-cols-3 gap-2 text-center">
+                <div className="rounded-lg border border-border bg-muted/30 p-3"><p className="text-lg font-bold text-red-400">{newFindings}</p><p className="text-xs text-muted-foreground">new</p></div>
+                <div className="rounded-lg border border-border bg-muted/30 p-3"><p className="text-lg font-bold text-emerald-400">{fixedFindings}</p><p className="text-xs text-muted-foreground">fixed</p></div>
+                <div className="rounded-lg border border-border bg-muted/30 p-3"><p className="text-lg font-bold">{unchangedFindings}</p><p className="text-xs text-muted-foreground">unchanged</p></div>
+              </div>
+            </div>
+          ) : (
+            <p className="mt-4 text-sm text-muted-foreground">Run at least two scans to compare changes.</p>
+          )}
+          <div className="mt-5 rounded-lg border border-border bg-muted/30 p-3">
+            <p className="text-xs font-bold uppercase text-muted-foreground">Enabled policy</p>
+            <p className="mt-1 text-sm">{scannerPolicy ? `${scannerPolicy.severityThreshold}+ / ${scannerPolicy.enabledEngines}` : "Default scanner policy"}</p>
+          </div>
+        </div>
       </div>
 
       {/* Scan History */}

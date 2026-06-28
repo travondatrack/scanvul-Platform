@@ -1,6 +1,8 @@
 import time
 import uuid
+from pathlib import Path
 from fastapi import FastAPI, Request
+import redis
 from starlette.middleware.base import BaseHTTPMiddleware
 from slowapi.middleware import SlowAPIMiddleware
 from app.api.router import api_router
@@ -52,9 +54,26 @@ def health_engines():
         "eslint": command_exists("eslint"),
     }
     all_ok = all(tools.values())
+    redis_ok = False
+    if settings.redis_url:
+        try:
+            redis.Redis.from_url(settings.redis_url, socket_connect_timeout=2, socket_timeout=2).ping()
+            redis_ok = True
+        except Exception:
+            redis_ok = False
+    storage_ok = False
+    try:
+        if settings.storage_backend.lower() == "local":
+            storage_ok = Path(settings.local_storage_path).exists()
+        else:
+            storage_ok = bool(settings.minio_endpoint and settings.minio_bucket)
+    except Exception:
+        storage_ok = False
     return {
         "status": "ok" if all_ok else "degraded",
         "engines": tools,
+        "redis": {"configured": bool(settings.redis_url), "available": redis_ok},
+        "storage": {"backend": settings.storage_backend, "available": storage_ok},
         "secret_verify_enabled": settings.secret_verify_enabled,
         "llm_enabled": bool(settings.llm_api_key),
     }

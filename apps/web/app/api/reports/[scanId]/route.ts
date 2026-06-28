@@ -56,6 +56,13 @@ export async function GET(req: NextRequest, { params }: Params) {
             attackScenario: true,
             impact: true,
             remediation: true,
+            secureExample: true,
+            pentestHint: true,
+            extReferences: true,
+            codeLink: true,
+            dedupeHash: true,
+            source: true,
+            sink: true,
             status: true,
             createdAt: true,
             poc: true,
@@ -72,6 +79,7 @@ export async function GET(req: NextRequest, { params }: Params) {
 
     const summary = {
       total: scan.findings.length,
+      riskScore: scan.riskPercent ?? 0,
       critical: scan.findings.filter((f) => f.severity.toLowerCase() === "critical").length,
       high: scan.findings.filter((f) => f.severity.toLowerCase() === "high").length,
       medium: scan.findings.filter((f) => f.severity.toLowerCase() === "medium").length,
@@ -82,6 +90,19 @@ export async function GET(req: NextRequest, { params }: Params) {
       false_positive: scan.findings.filter((f) => f.status === "false_positive").length,
       fixed: scan.findings.filter((f) => f.status === "fixed").length,
       accepted_risk: scan.findings.filter((f) => f.status === "accepted_risk").length,
+      topAffectedFiles: Object.entries(scan.findings.reduce<Record<string, number>>((acc, f) => {
+        acc[f.filePath] = (acc[f.filePath] ?? 0) + 1;
+        return acc;
+      }, {})).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([filePath, count]) => ({ filePath, count })),
+      byEngine: Object.entries(scan.findings.reduce<Record<string, number>>((acc, f) => {
+        acc[f.engine] = (acc[f.engine] ?? 0) + 1;
+        return acc;
+      }, {})).sort((a, b) => b[1] - a[1]).map(([engine, count]) => ({ engine, count })),
+      byOwaspCategory: Object.entries(scan.findings.reduce<Record<string, number>>((acc, f) => {
+        const key = f.owaspCategory || "Unmapped";
+        acc[key] = (acc[key] ?? 0) + 1;
+        return acc;
+      }, {})).sort((a, b) => b[1] - a[1]).map(([category, count]) => ({ category, count })),
     };
 
     if (format === "sarif") {

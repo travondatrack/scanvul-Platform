@@ -1,7 +1,7 @@
 import { requireActiveUser } from "@/lib/session";
 import { notFound } from "next/navigation";
 import { getBackend } from "@/lib/backend";
-import { Activity, CheckCircle, XCircle, Server, Database, ShieldCheck } from "lucide-react";
+import { Activity, CheckCircle, RefreshCw, XCircle, Server, Database, ShieldCheck } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 
 export default async function AdminHealthPage() {
@@ -28,10 +28,16 @@ export default async function AdminHealthPage() {
   return (
     <div className="space-y-6 max-w-6xl mx-auto">
       <div>
-        <h1 className="text-3xl font-bold text-white tracking-tight flex items-center gap-2">
-          <Activity className="w-8 h-8 text-brand" />
-          System Health Dashboard
-        </h1>
+        <div className="flex items-center justify-between gap-4">
+          <h1 className="text-3xl font-bold text-white tracking-tight flex items-center gap-2">
+            <Activity className="w-8 h-8 text-brand" />
+            System Health Dashboard
+          </h1>
+          <a href="/admin/health" className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-sm font-bold hover:bg-muted">
+            <RefreshCw className="h-4 w-4" />
+            Refresh
+          </a>
+        </div>
         <p className="text-slate-400 mt-1">Real-time status of backend services and engines.</p>
       </div>
 
@@ -60,6 +66,42 @@ export default async function AdminHealthPage() {
               <span className="flex items-center gap-1 text-emerald-400 text-sm font-bold bg-emerald-500/10 px-2 py-1 rounded border border-emerald-500/20">
                 <CheckCircle className="w-4 h-4" /> Operational
               </span>
+            </div>
+            <div className="flex items-center justify-between p-3 bg-white/5 rounded-xl border border-border">
+              <span className="text-slate-300 font-bold">Redis / Celery Broker</span>
+              {health?.redis?.available ? (
+                <span className="flex items-center gap-1 text-emerald-400 text-sm font-bold bg-emerald-500/10 px-2 py-1 rounded border border-emerald-500/20">
+                  <CheckCircle className="w-4 h-4" /> Operational
+                </span>
+              ) : (
+                <span className="flex items-center gap-1 text-red-400 text-sm font-bold bg-red-500/10 px-2 py-1 rounded border border-red-500/20">
+                  <XCircle className="w-4 h-4" /> {health?.redis?.configured ? "Down" : "Missing"}
+                </span>
+              )}
+            </div>
+            <div className="flex items-center justify-between p-3 bg-white/5 rounded-xl border border-border">
+              <span className="text-slate-300 font-bold">Storage ({health?.storage?.backend ?? "unknown"})</span>
+              {health?.storage?.available ? (
+                <span className="flex items-center gap-1 text-emerald-400 text-sm font-bold bg-emerald-500/10 px-2 py-1 rounded border border-emerald-500/20">
+                  <CheckCircle className="w-4 h-4" /> Available
+                </span>
+              ) : (
+                <span className="flex items-center gap-1 text-red-400 text-sm font-bold bg-red-500/10 px-2 py-1 rounded border border-red-500/20">
+                  <XCircle className="w-4 h-4" /> Unavailable
+                </span>
+              )}
+            </div>
+            <div className="flex items-center justify-between p-3 bg-white/5 rounded-xl border border-border">
+              <span className="text-slate-300 font-bold">AI Config</span>
+              {health?.llm_enabled ? (
+                <span className="flex items-center gap-1 text-emerald-400 text-sm font-bold bg-emerald-500/10 px-2 py-1 rounded border border-emerald-500/20">
+                  <CheckCircle className="w-4 h-4" /> Available
+                </span>
+              ) : (
+                <span className="flex items-center gap-1 text-amber-400 text-sm font-bold bg-amber-500/10 px-2 py-1 rounded border border-amber-500/20">
+                  Missing
+                </span>
+              )}
             </div>
           </div>
         </div>

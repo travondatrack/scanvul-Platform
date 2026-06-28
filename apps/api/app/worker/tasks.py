@@ -105,6 +105,14 @@ def _delete_findings_safe(db, scan_id: str, max_retries: int = 3) -> None:
 def _scan_notification(db, scan: Scan, status: str) -> None:
     if not scan.triggered_by:
         return
+    notification_type = "scan_completed" if status == "completed" else "scan_failed"
+    existing = db.query(Notification).filter(
+        Notification.user_id == scan.triggered_by,
+        Notification.type == notification_type,
+        Notification.payload.like(f'%"{scan.id}"%'),
+    ).first()
+    if existing is not None:
+        return
     title = "Scan completed" if status == "completed" else "Scan failed"
     message = (
         f"Scan {scan.id} completed with risk {scan.risk_level}."
@@ -113,7 +121,7 @@ def _scan_notification(db, scan: Scan, status: str) -> None:
     )
     db.add(Notification(
         user_id=scan.triggered_by,
-        type="scan_completed" if status == "completed" else "scan_failed",
+        type=notification_type,
         title=title,
         message=message,
         payload=json.dumps({
@@ -178,6 +186,7 @@ def execute_scan(scan_id: str) -> str:
             upload_asset = db.get(UploadedAsset, scan.source_value)
 
         source_dir = ingest_source(scan.source_type, scan.source_value, upload_asset)
+        event_logger.log("source_resolved", "Source fetched and prepared for scanning.")
         
         # Inject log_event callback to track progress across engines
         scanner_policy = _load_scanner_policy(db, scan.project_id)
@@ -255,6 +264,7 @@ def execute_scan(scan_id: str) -> str:
         _scan_notification(db, scan, "completed")
         db.commit()
 
+        event_logger.log("report_generated", "Findings saved and report data is ready.")
         event_logger.log("completed", f"Scan finished successfully in {duration_ms}ms")
         logger.info("Scan %s completed: %d findings, risk=%s (%.1f%%)",
                     scan_id, len(findings), risk_level, risk_percent)
@@ -337,6 +347,7 @@ def cleanup_stale_scans() -> int:
                 scan.completed_at = now
                 scan.error_message = "Scan timeout: Stuck in queue for more than 3 minutes."
                 db.add(ScanEvent(scan_id=scan.id, event_type="failed", message=scan.error_message))
+                _scan_notification(db, scan, "failed")
                 failed_count += 1
                 
         # Also clean up stuck 'running' scans > 30 mins
@@ -351,6 +362,7 @@ def cleanup_stale_scans() -> int:
                 scan.completed_at = now
                 scan.error_message = "Scan timeout: Stuck in running for more than 30 minutes."
                 db.add(ScanEvent(scan_id=scan.id, event_type="failed", message=scan.error_message))
+                _scan_notification(db, scan, "failed")
                 failed_count += 1
                 
         if failed_count > 0:

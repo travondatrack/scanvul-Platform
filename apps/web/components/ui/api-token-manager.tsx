@@ -16,6 +16,7 @@ export function ApiTokenManager({ projectId }: ApiTokenManagerProps) {
   const [generatedToken, setGeneratedToken] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [copiedYaml, setCopiedYaml] = useState(false);
+  const [copiedCommand, setCopiedCommand] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
@@ -77,6 +78,12 @@ export function ApiTokenManager({ projectId }: ApiTokenManagerProps) {
     }
   };
 
+  const copyCommand = (label: string, text: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedCommand(label);
+    setTimeout(() => setCopiedCommand(""), 2000);
+  };
+
   const githubActionsYaml = `name: ScanVul AI Security Scan
 
 on:
@@ -107,6 +114,11 @@ jobs:
         with:
           sarif_file: scanvul-results.sarif
 `;
+  const curlCommand = `curl -X POST https://scanvul.ai/api/ci/scan \\
+  -H "Authorization: Bearer $SCANVUL_TOKEN" \\
+  -H "Content-Type: application/json" \\
+  -d '{"sourceType":"repo_url"}'`;
+  const npmScript = `"security:scan": "curl -X POST https://scanvul.ai/api/ci/scan -H \\"Authorization: Bearer $SCANVUL_TOKEN\\" -H \\"Content-Type: application/json\\" -d '{\\"sourceType\\":\\"repo_url\\"}'"`;
 
   return (
     <div className="space-y-6">
@@ -203,6 +215,28 @@ jobs:
           <pre className="text-xs text-slate-300 font-mono leading-relaxed">
             {githubActionsYaml}
           </pre>
+        </div>
+        <div className="mt-4 grid gap-4 md:grid-cols-2">
+          <div className="rounded-xl border border-border bg-muted p-4">
+            <div className="mb-3 flex items-center justify-between">
+              <h4 className="font-bold text-foreground">curl command</h4>
+              <Button variant="outline" size="sm" onClick={() => copyCommand("curl", curlCommand)}>
+                {copiedCommand === "curl" ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
+                Copy
+              </Button>
+            </div>
+            <pre className="overflow-x-auto text-xs text-slate-300">{curlCommand}</pre>
+          </div>
+          <div className="rounded-xl border border-border bg-muted p-4">
+            <div className="mb-3 flex items-center justify-between">
+              <h4 className="font-bold text-foreground">npm script</h4>
+              <Button variant="outline" size="sm" onClick={() => copyCommand("npm", npmScript)}>
+                {copiedCommand === "npm" ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
+                Copy
+              </Button>
+            </div>
+            <pre className="overflow-x-auto text-xs text-slate-300">{npmScript}</pre>
+          </div>
         </div>
       </div>
     </div>

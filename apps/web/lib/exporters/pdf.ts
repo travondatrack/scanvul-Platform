@@ -34,6 +34,7 @@ export async function generatePdfReport(scanData: any, summary: any): Promise<Bu
           body: [
             ["Status", scanData.status],
             ["Risk Level", scanData.riskLevel],
+            ["Risk Score", `${summary.riskScore ?? scanData.riskPercent ?? 0}%`],
             ["Total Findings", summary.total.toString()],
           ],
         },
@@ -64,9 +65,27 @@ export async function generatePdfReport(scanData: any, summary: any): Promise<Bu
         margin: [0, 0, 0, 20],
       },
 
+      { text: "Top Affected Files", style: "subheader" },
+      {
+        ul: (summary.topAffectedFiles?.length ? summary.topAffectedFiles : [{ filePath: "None", count: 0 }]).map((item: any) => `${item.filePath} (${item.count})`),
+        margin: [0, 0, 0, 12],
+      },
+
+      { text: "Findings by Engine", style: "subheader" },
+      {
+        ul: (summary.byEngine?.length ? summary.byEngine : [{ engine: "None", count: 0 }]).map((item: any) => `${item.engine} (${item.count})`),
+        margin: [0, 0, 0, 12],
+      },
+
+      { text: "Findings by OWASP Category", style: "subheader" },
+      {
+        ul: (summary.byOwaspCategory?.length ? summary.byOwaspCategory : [{ category: "None", count: 0 }]).map((item: any) => `${item.category} (${item.count})`),
+        margin: [0, 0, 0, 20],
+      },
+
       { text: "Findings Details", style: "header", pageBreak: "before" },
       ...maskedFindings.map((finding: any, index: number) => {
-        return [
+        const nodes: any[] = [
           { text: `${index + 1}. ${finding.title}`, style: "subheader", color: finding.severity.toLowerCase() === 'critical' ? 'red' : 'black' },
           {
             table: {
@@ -76,8 +95,10 @@ export async function generatePdfReport(scanData: any, summary: any): Promise<Bu
                 ["File", finding.filePath],
                 ["Line", finding.lineNumber?.toString() || "Unknown"],
                 ["CWE", finding.cweId || "N/A"],
+                ["OWASP", finding.owaspCategory || "N/A"],
                 ["Category", finding.scanCategory],
                 ["Engine", finding.engine],
+                ["Confidence", `${Math.round((finding.confidence || 0) * 100)}%`],
               ],
             },
             margin: [0, 5, 0, 5],
@@ -85,8 +106,19 @@ export async function generatePdfReport(scanData: any, summary: any): Promise<Bu
           { text: "Description", bold: true, margin: [0, 5, 0, 2] },
           { text: finding.whyVulnerable || finding.attackScenario || "No description provided." },
           { text: "Remediation", bold: true, margin: [0, 5, 0, 2] },
-          { text: finding.remediation || "No remediation provided.", margin: [0, 0, 0, 15] },
+          { text: finding.remediation || "No remediation provided." },
         ];
+        if (finding.secureExample) {
+          nodes.push(
+            { text: "Secure Example", bold: true, margin: [0, 5, 0, 2] },
+            { text: finding.secureExample },
+          );
+        }
+        nodes.push(
+          { text: "Pentest Guidance", bold: true, margin: [0, 5, 0, 2] },
+          { text: finding.pentestHint || "Validate manually in an authorized non-production environment and avoid destructive actions.", margin: [0, 0, 0, 15] },
+        );
+        return nodes;
       }),
     ],
     styles: {

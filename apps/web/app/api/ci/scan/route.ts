@@ -29,6 +29,10 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { sourceType = "repo_url", sourceValue } = body;
 
+    if (!["repo_url", "archive", "paste"].includes(sourceType)) {
+      return NextResponse.json({ error: "Invalid sourceType" }, { status: 400 });
+    }
+
     const resolvedSourceValue = sourceValue || apiToken.project.repoUrl;
 
     if (!resolvedSourceValue) {
@@ -49,6 +53,12 @@ export async function POST(req: NextRequest) {
         sourceValue: resolvedSourceValue,
         status: "queued",
         triggeredBy: "ci_pipeline", // Special marker or token ID
+        scanEvents: {
+          create: {
+            eventType: "queued",
+            message: "CI scan queued and waiting for worker pickup.",
+          },
+        },
       },
     });
 

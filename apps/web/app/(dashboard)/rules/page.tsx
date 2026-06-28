@@ -17,6 +17,29 @@ const ENGINE_META = [
   { id: "secrets", name: "Secret Scanner", description: "Detect exposed credentials, tokens, keys, and secrets.", icon: Database, ruleset: "ScanVul signatures" },
 ];
 
+const POLICY_PRESETS = [
+  {
+    name: "Fast Scan",
+    description: "SAST essentials with low runtime.",
+    patch: { enabledEngines: ["semgrep", "owasp", "secrets"], severityThreshold: "Medium", aiTriageEnabled: false, secretVerificationEnabled: false },
+  },
+  {
+    name: "Balanced",
+    description: "Default SAST, dependencies, and secret detection.",
+    patch: { enabledEngines: ["semgrep", "bandit", "eslint", "owasp", "trivy", "secrets"], severityThreshold: "Low", aiTriageEnabled: false, secretVerificationEnabled: false },
+  },
+  {
+    name: "Strict Security",
+    description: "Run every engine and keep informational findings.",
+    patch: { enabledEngines: ["semgrep", "bandit", "eslint", "owasp", "trivy", "secrets"], severityThreshold: "Info", aiTriageEnabled: false, secretVerificationEnabled: true },
+  },
+  {
+    name: "AI Assisted",
+    description: "Balanced engines with AI triage enabled.",
+    patch: { enabledEngines: ["semgrep", "bandit", "eslint", "owasp", "trivy", "secrets"], severityThreshold: "Low", aiTriageEnabled: true, secretVerificationEnabled: false },
+  },
+];
+
 type Project = { id: string; name: string; organization?: { name: string } | null };
 type Policy = {
   projectId: string;
@@ -89,6 +112,12 @@ export default function RulesPoliciesPage() {
     }
   }
 
+  function applyPreset(preset: (typeof POLICY_PRESETS)[number]) {
+    if (!policy) return;
+    setPolicy({ ...policy, ...preset.patch });
+    setMessage(`${preset.name} preset applied. Save to persist it.`);
+  }
+
   return (
     <div className="space-y-6 max-w-4xl mx-auto mt-4">
       <PageHeader title="ScanVul Rules" description="Configure scanner policy per project." />
@@ -122,6 +151,22 @@ export default function RulesPoliciesPage() {
         <Card className="p-8 text-center text-muted-foreground">Create a project before configuring scan rules.</Card>
       ) : (
         <>
+          <Card className="p-5">
+            <h2 className="mb-3 text-sm font-bold uppercase text-muted-foreground">Presets</h2>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {POLICY_PRESETS.map((preset) => (
+                <button
+                  key={preset.name}
+                  onClick={() => applyPreset(preset)}
+                  className="rounded-lg border border-border bg-card p-4 text-left transition-colors hover:border-brand/40 hover:bg-muted/40"
+                >
+                  <div className="font-bold text-foreground">{preset.name}</div>
+                  <p className="mt-1 text-sm text-muted-foreground">{preset.description}</p>
+                </button>
+              ))}
+            </div>
+          </Card>
+
           <div className="space-y-4">
             {ENGINE_META.map((engine) => {
               const Icon = engine.icon;

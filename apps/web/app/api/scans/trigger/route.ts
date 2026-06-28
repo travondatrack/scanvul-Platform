@@ -18,7 +18,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "projectId is required" }, { status: 400 });
     }
 
-    const resolvedSourceType = VALID_SOURCE_TYPES.has(sourceType) ? sourceType : "repo_url";
+    if (!VALID_SOURCE_TYPES.has(sourceType)) {
+      return NextResponse.json({ error: "Invalid sourceType" }, { status: 400 });
+    }
+    const resolvedSourceType = sourceType;
     const resolvedSourceValue = sourceValue ?? repoUrl;
 
     if (!resolvedSourceValue) {
@@ -43,7 +46,7 @@ export async function POST(req: NextRequest) {
 
     // ── Idempotency: prevent duplicate trigger on already-running scan ──────
     const runningScan = await prisma.scan.findFirst({
-      where: { projectId, status: "running" },
+      where: { projectId, status: { in: ["queued", "running"] } },
       select: { id: true },
     });
 
@@ -65,6 +68,12 @@ export async function POST(req: NextRequest) {
         sourceType: resolvedSourceType,
         sourceValue: resolvedSourceValue,
         status: "queued",
+        scanEvents: {
+          create: {
+            eventType: "queued",
+            message: "Scan queued and waiting for worker pickup.",
+          },
+        },
       },
     });
 

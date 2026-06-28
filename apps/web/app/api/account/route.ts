@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { requireActiveUser } from "@/lib/session";
 
 const REQUIRED_CONFIRMATION = "DELETE";
+const AVATAR_DATA_URI = /^data:image\/(png|jpeg|jpg|gif|webp);base64,[a-z0-9+/=]+$/i;
 
 export async function PATCH(req: NextRequest) {
   try {
@@ -15,8 +16,8 @@ export async function PATCH(req: NextRequest) {
     if (!name) {
       return NextResponse.json({ error: "Name is required" }, { status: 400 });
     }
-    if (image && !/^https?:\/\//i.test(image) && !image.startsWith("data:image/")) {
-      return NextResponse.json({ error: "Avatar must be an image URL or data URI" }, { status: 400 });
+    if (image && !/^https?:\/\/[^\s"'<>]+$/i.test(image) && !AVATAR_DATA_URI.test(image)) {
+      return NextResponse.json({ error: "Avatar must be an http(s) image URL or PNG/JPEG/GIF/WebP data URI" }, { status: 400 });
     }
 
     const updated = await prisma.user.update({

@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { 
   ArrowLeft, CheckCircle, AlertTriangle, RefreshCw, 
   ShieldCheck, ShieldAlert, FileCode2, ChevronLeft, ChevronRight,
-  HelpCircle, ShieldX, SkipForward, ExternalLink, Activity
+  HelpCircle, ShieldX, SkipForward, ExternalLink, Activity, Copy, Sparkles
 } from "lucide-react";
 import { SeverityBadge } from "./severity-badge";
 import { CodeSnippet } from "./code-snippet";
@@ -39,6 +39,8 @@ export type FindingItem = {
   codeSnippet: string;
   evidence: string;
   pentestHint: string;
+  secureExample?: string;
+  codeLink?: string | null;
   references: string;
   cvss4: number;
   confidence: number;
@@ -48,6 +50,7 @@ export type FindingItem = {
   vulnType?: string;
   cweId?: string;
   owaspCategory?: string;
+  previouslyFalsePositive?: boolean;
 };
 
 const severityRank: Record<string, number> = {
@@ -55,7 +58,40 @@ const severityRank: Record<string, number> = {
   High: 3,
   Medium: 2,
   Low: 1,
+  Info: 0,
 };
+
+type AiReview = {
+  isLikelyTruePositive?: boolean;
+  confidence?: number;
+  explanation?: string;
+  suggestedFix?: string;
+  secureCodeExample?: string;
+  pentestSuggestion?: string;
+};
+
+function buildPentestGuidance(finding: FindingItem) {
+  if (finding.pentestHint?.trim()) return finding.pentestHint;
+  const blob = `${finding.vulnType} ${finding.title} ${finding.cweId} ${finding.owaspCategory}`.toLowerCase();
+  if (blob.includes("sql")) {
+    return "Goal: confirm whether user-controlled input reaches a SQL query. Manual check: use a staging account and submit harmless quote/control characters, then compare validation and error handling. Safe payload sample: ' OR '1'='1 against a non-production test record only. Expected behavior: parameterized query rejects or treats input as data. False-positive signs: input is normalized before the query or only appears in a constant query path. Do not dump data or alter records.";
+  }
+  if (blob.includes("xss") || blob.includes("cross-site")) {
+    return "Goal: confirm whether input is rendered as executable HTML/JavaScript. Manual check: use a harmless marker payload in staging and inspect rendered output. Safe payload sample: <script>alert(1)</script> or an encoded marker. Expected behavior: output is escaped or sanitized. False-positive signs: the value is displayed as text or sanitized by a trusted renderer. Do not target real users.";
+  }
+  if (blob.includes("ssrf")) {
+    return "Goal: confirm whether the server can be forced to fetch attacker-controlled URLs. Manual check: point the parameter to an authorized callback endpoint in staging. Expected behavior: allowlist blocks unknown hosts and private ranges. False-positive signs: URL is never fetched server-side or strict allowlist is enforced. Do not probe internal production networks.";
+  }
+  if (blob.includes("secret") || blob.includes("credential")) {
+    return "Goal: determine whether the exposed value is real and still active. Manual check: rotate the secret first when possible, then validate metadata through the owning provider with least-privilege tooling. Expected behavior: secrets are revoked and moved to a vault. False-positive signs: placeholder/test token pattern or revoked credential. Do not use the secret to access data.";
+  }
+  return "Goal: validate exploitability in an authorized staging environment. Manual check: trace source-to-sink reachability, confirm whether attacker-controlled input can influence the vulnerable operation, and compare behavior before/after a safe guardrail. Expected behavior: validation, escaping, authorization, or safe API usage prevents impact. False-positive signs: unreachable code, sanitized input, or framework protection. Do not perform destructive actions.";
+}
+
+function copyText(value: string) {
+  if (!value) return;
+  void navigator.clipboard?.writeText(value);
+}
 
 const verificationConfig: Record<string, { label: string; icon: any; cls: string }> = {
   verified: { label: "Verified", icon: ShieldCheck, cls: "border-emerald-500/20 bg-emerald-500/10 text-emerald-400" },
@@ -151,13 +187,19 @@ export function TriageDashboard({
 }: { 
   scan: any; 
   findings: FindingItem[];
-  stats: { critical: number; high: number; medium: number; low: number; total: number; riskScore: number };
+  stats: { critical: number; high: number; medium: number; low: number; info?: number; total: number; riskScore: number };
 }) {
   const [activeTab, setActiveTab] = useState("All");
   const [verStatusFilter, setVerStatusFilter] = useState("All");
   const [langFilter, setLangFilter] = useState("All");
+  const [hidePreviousFp, setHidePreviousFp] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(findings[0]?.id || null);
   const [detailTab, setDetailTab] = useState("evidence");
+  const [aiAvailable, setAiAvailable] = useState<boolean | null>(null);
+  const [aiReason, setAiReason] = useState("");
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiReview, setAiReview] = useState<AiReview | null>(null);
+  const [aiError, setAiError] = useState("");
   
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
@@ -203,21 +245,63 @@ export function TriageDashboard({
         const sevOk = activeTab === "All" || f.severity.toLowerCase() === activeTab.toLowerCase();
         const verOk = verStatusFilter === "All" || f.verificationStatus === verStatusFilter;
         const langOk = langFilter === "All" || inferLanguage(f.filePath) === langFilter.toLowerCase();
-        return sevOk && verOk && langOk;
+        const fpOk = !hidePreviousFp || !f.previouslyFalsePositive;
+        return sevOk && verOk && langOk && fpOk;
       })
       .sort((a, b) => {
         return (severityRank[b.severity] ?? 0) - (severityRank[a.severity] ?? 0) || b.cvss4 - a.cvss4;
       });
-  }, [findings, activeTab, verStatusFilter, langFilter]);
+  }, [findings, activeTab, verStatusFilter, langFilter, hidePreviousFp]);
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [activeTab, verStatusFilter, langFilter]);
+  }, [activeTab, verStatusFilter, langFilter, hidePreviousFp]);
 
   const totalPages = Math.ceil(filtered.length / itemsPerPage);
   const paginated = filtered.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
   
   const selectedFinding = useMemo(() => findings.find(f => f.id === selectedId), [findings, selectedId]);
+
+  useEffect(() => {
+    if (!selectedFinding) return;
+    let cancelled = false;
+    setAiReview(null);
+    setAiError("");
+    setAiAvailable(null);
+    fetch(`/api/findings/${selectedFinding.id}/ai-review`)
+      .then((res) => res.ok ? res.json() : { available: false, reason: "AI review unavailable." })
+      .then((data) => {
+        if (!cancelled) {
+          setAiAvailable(Boolean(data.available));
+          setAiReason(data.reason || "");
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setAiAvailable(false);
+          setAiReason("AI review unavailable.");
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedFinding?.id]);
+
+  async function runAiReview() {
+    if (!selectedFinding) return;
+    setAiLoading(true);
+    setAiError("");
+    try {
+      const res = await fetch(`/api/findings/${selectedFinding.id}/ai-review`, { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "AI review failed");
+      setAiReview(data.review);
+    } catch (error) {
+      setAiError(error instanceof Error ? error.message : "AI review failed");
+    } finally {
+      setAiLoading(false);
+    }
+  }
 
   return (
     <div className="min-h-screen bg-background text-foreground font-sans transition-colors duration-300 relative flex flex-col">
@@ -295,6 +379,7 @@ export function TriageDashboard({
               { label: 'High', count: stats.high, color: 'text-orange-500', bg: 'bg-orange-500' },
               { label: 'Medium', count: stats.medium, color: 'text-amber-500', bg: 'bg-amber-500' },
               { label: 'Low', count: stats.low, color: 'text-emerald-500', bg: 'bg-emerald-500' },
+              { label: 'Info', count: stats.info ?? 0, color: 'text-sky-500', bg: 'bg-sky-500' },
             ].map(sev => (
               <button 
                 key={sev.label}
@@ -367,6 +452,15 @@ export function TriageDashboard({
               <option value="dotnet">.NET</option>
             </select>
           </div>
+
+          <label className="flex items-center gap-2 rounded-lg border border-border bg-card/40 p-3 text-sm font-semibold">
+            <input
+              type="checkbox"
+              checked={hidePreviousFp}
+              onChange={(e) => setHidePreviousFp(e.target.checked)}
+            />
+            Hide previously false positive
+          </label>
           
           {/* Collapsed Timeline */}
           {scan.scanEvents && scan.scanEvents.length > 0 && (
@@ -435,6 +529,9 @@ export function TriageDashboard({
                         <SeverityBadge level={item.severity} />
                         <span className="text-[10px] font-bold text-slate-400 bg-white/5 border border-white/10 px-1.5 py-0.5 rounded uppercase">CVSS {item.cvss4.toFixed(1)}</span>
                         <VerificationBadge status={item.verificationStatus} />
+                        {item.previouslyFalsePositive && (
+                          <span className="text-[10px] font-bold text-amber-500 bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 rounded uppercase">Previous FP</span>
+                        )}
                       </div>
                     </div>
                     <h4 className="text-sm font-bold leading-snug line-clamp-2 text-foreground">{item.title}</h4>
@@ -490,6 +587,9 @@ export function TriageDashboard({
                   {selectedFinding.cweId && (
                     <span className="text-xs font-bold text-brand bg-brand/10 px-2 py-0.5 rounded-full border border-brand/20">{selectedFinding.cweId}</span>
                   )}
+                  {selectedFinding.owaspCategory && (
+                    <span className="text-xs font-bold text-purple-400 bg-purple-500/10 px-2 py-0.5 rounded-full border border-purple-500/20">{selectedFinding.owaspCategory}</span>
+                  )}
                 </div>
                 <h2 className="text-lg font-bold text-foreground mb-3">{selectedFinding.title}</h2>
                 <div className="flex flex-col gap-2 p-3 bg-muted/40 rounded-xl border border-border font-mono text-xs overflow-x-auto">
@@ -499,7 +599,14 @@ export function TriageDashboard({
                   </div>
                   <div className="flex gap-2">
                     <span className="text-slate-500 w-12 shrink-0">Line:</span>
-                    <span className="text-brand font-bold">{selectedFinding.lineNumber}</span>
+                    <span className="text-brand font-bold">
+                      {selectedFinding.lineStart || selectedFinding.lineNumber}
+                      {selectedFinding.lineEnd && selectedFinding.lineEnd !== (selectedFinding.lineStart || selectedFinding.lineNumber) ? `-${selectedFinding.lineEnd}` : ""}
+                    </span>
+                  </div>
+                  <div className="flex gap-2">
+                    <span className="text-slate-500 w-12 shrink-0">Conf:</span>
+                    <span className="text-foreground">{Math.round((selectedFinding.confidence || 0) * 100)}%</span>
                   </div>
                   {selectedFinding.functionName && (
                     <div className="flex gap-2">
@@ -508,11 +615,34 @@ export function TriageDashboard({
                     </div>
                   )}
                 </div>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {selectedFinding.codeLink ? (
+                    <a
+                      href={selectedFinding.codeLink}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-background px-3 py-1.5 text-xs font-bold hover:border-brand hover:text-brand"
+                    >
+                      <ExternalLink className="h-3.5 w-3.5" />
+                      View code
+                    </a>
+                  ) : (
+                    <span className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-background px-3 py-1.5 text-xs text-muted-foreground">
+                      <FileCode2 className="h-3.5 w-3.5" />
+                      {selectedFinding.filePath}:L{selectedFinding.lineNumber}
+                    </span>
+                  )}
+                  {selectedFinding.previouslyFalsePositive && (
+                    <span className="inline-flex items-center rounded-lg border border-amber-500/20 bg-amber-500/10 px-3 py-1.5 text-xs font-bold text-amber-500">
+                      Previously marked false positive
+                    </span>
+                  )}
+                </div>
               </div>
               
               {/* Detail Tabs */}
               <div className="flex gap-1 p-2 border-b border-border bg-card/30 overflow-x-auto">
-                {['evidence', 'impact', 'fix', 'triage', 'references'].map(t => (
+                {['evidence', 'impact', 'fix', 'pentest', 'ai', 'triage', 'references'].map(t => (
                   <button 
                     key={t}
                     onClick={() => setDetailTab(t)}
@@ -547,6 +677,10 @@ export function TriageDashboard({
                         <h4 className="text-xs font-bold uppercase text-brand mb-2">Why vulnerable</h4>
                         <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">{selectedFinding.whyVulnerable || selectedFinding.attackScenario}</p>
                       </div>
+                      <div className="rounded-xl bg-slate-50 dark:bg-white/5 border border-border/50 p-4">
+                        <h4 className="text-xs font-bold uppercase text-brand mb-2">Attack scenario</h4>
+                        <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">{selectedFinding.attackScenario || "No attack scenario available."}</p>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -565,15 +699,93 @@ export function TriageDashboard({
                 {detailTab === 'fix' && (
                   <div className="space-y-4">
                     <div className="rounded-xl border border-emerald-200 dark:border-emerald-500/30 bg-emerald-50 dark:bg-emerald-500/10 p-4">
-                      <h4 className="mb-2 text-xs font-bold uppercase text-emerald-700 dark:text-emerald-400 flex items-center gap-1.5">
-                        <ShieldCheck className="w-4 h-4" /> Remediation
-                      </h4>
+                      <div className="mb-2 flex items-center justify-between gap-2">
+                        <h4 className="text-xs font-bold uppercase text-emerald-700 dark:text-emerald-400 flex items-center gap-1.5">
+                          <ShieldCheck className="w-4 h-4" /> Remediation
+                        </h4>
+                        <button
+                          onClick={() => copyText(selectedFinding.remediation)}
+                          className="inline-flex items-center gap-1 rounded-md border border-emerald-500/20 px-2 py-1 text-xs font-semibold text-emerald-700 dark:text-emerald-300"
+                        >
+                          <Copy className="h-3 w-3" />
+                          Copy
+                        </button>
+                      </div>
                       <p className="text-sm text-slate-800 dark:text-slate-200 leading-relaxed">{selectedFinding.remediation}</p>
                     </div>
-                    {selectedFinding.pentestHint && (
-                      <div className="rounded-xl border border-brand/20 bg-brand/5 p-4 mt-4">
-                        <h4 className="mb-2 text-xs font-bold uppercase text-brand">Pentest Hints</h4>
-                        <p className="text-sm text-slate-700 dark:text-slate-200 leading-relaxed">{selectedFinding.pentestHint}</p>
+                    {selectedFinding.secureExample && (
+                      <div className="rounded-xl border border-border bg-slate-50 dark:bg-white/5 p-4">
+                        <h4 className="mb-2 text-xs font-bold uppercase text-brand">Secure example</h4>
+                        <CodeSnippet code={selectedFinding.secureExample} language={inferLanguage(selectedFinding.filePath)} />
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {detailTab === 'pentest' && (
+                  <div className="rounded-xl border border-brand/20 bg-brand/5 p-4">
+                    <div className="mb-2 flex items-center justify-between gap-2">
+                      <h4 className="text-xs font-bold uppercase text-brand">Pentest Guidance</h4>
+                      <button
+                        onClick={() => copyText(buildPentestGuidance(selectedFinding))}
+                        className="inline-flex items-center gap-1 rounded-md border border-brand/20 px-2 py-1 text-xs font-semibold text-brand"
+                      >
+                        <Copy className="h-3 w-3" />
+                        Copy
+                      </button>
+                    </div>
+                    <p className="whitespace-pre-wrap text-sm text-slate-700 dark:text-slate-200 leading-relaxed">{buildPentestGuidance(selectedFinding)}</p>
+                  </div>
+                )}
+
+                {detailTab === 'ai' && (
+                  <div className="space-y-4">
+                    <div className="rounded-xl border border-border bg-slate-50 dark:bg-white/5 p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <h4 className="text-sm font-bold text-foreground">AI Review Finding</h4>
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            Reviews masked, truncated evidence and stores the result in the finding timeline.
+                          </p>
+                        </div>
+                        <button
+                          onClick={runAiReview}
+                          disabled={aiLoading || aiAvailable !== true}
+                          className="inline-flex items-center gap-2 rounded-lg bg-brand px-3 py-2 text-xs font-bold text-white disabled:opacity-50"
+                        >
+                          {aiLoading ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+                          Review
+                        </button>
+                      </div>
+                      {aiAvailable === false && <p className="mt-3 text-sm text-amber-500">{aiReason || "AI review is disabled."}</p>}
+                      {aiError && <p className="mt-3 text-sm text-red-500">{aiError}</p>}
+                    </div>
+                    {aiReview && (
+                      <div className="space-y-3 rounded-xl border border-brand/20 bg-brand/5 p-4 text-sm">
+                        <div className="flex flex-wrap gap-2">
+                          <span className="rounded-full bg-background px-2 py-1 text-xs font-bold">
+                            {aiReview.isLikelyTruePositive ? "Likely true positive" : "Likely false positive"}
+                          </span>
+                          {typeof aiReview.confidence === "number" && (
+                            <span className="rounded-full bg-background px-2 py-1 text-xs font-bold">
+                              Confidence {Math.round(aiReview.confidence * 100)}%
+                            </span>
+                          )}
+                        </div>
+                        {aiReview.explanation && <p className="text-slate-700 dark:text-slate-200">{aiReview.explanation}</p>}
+                        {aiReview.suggestedFix && (
+                          <div>
+                            <p className="mb-1 text-xs font-bold uppercase text-brand">Suggested fix</p>
+                            <p className="text-slate-700 dark:text-slate-200">{aiReview.suggestedFix}</p>
+                          </div>
+                        )}
+                        {aiReview.secureCodeExample && <CodeSnippet code={aiReview.secureCodeExample} language={inferLanguage(selectedFinding.filePath)} />}
+                        {aiReview.pentestSuggestion && (
+                          <div>
+                            <p className="mb-1 text-xs font-bold uppercase text-brand">Pentest suggestion</p>
+                            <p className="text-slate-700 dark:text-slate-200">{aiReview.pentestSuggestion}</p>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>

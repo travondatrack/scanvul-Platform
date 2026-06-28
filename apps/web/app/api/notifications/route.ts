@@ -8,11 +8,18 @@ export async function GET(req: NextRequest) {
   try {
     const user = await requireActiveUser();
     const unreadOnly = req.nextUrl.searchParams.get("unread") === "true";
+    const category = req.nextUrl.searchParams.get("category");
+    const typeFilter =
+      category === "scan" ? ["scan_completed", "scan_failed"] :
+      category === "finding" ? ["finding_assigned", "finding_commented"] :
+      category === "team" ? ["team_invite", "invite_accepted", "invite_rejected", "member_left", "member_removed", "team_deleted"] :
+      null;
 
     const notifications = await prisma.notification.findMany({
       where: {
         userId: user.id,
         ...(unreadOnly ? { status: "unread" } : {}),
+        ...(typeFilter ? { type: { in: typeFilter } } : {}),
       },
       orderBy: { createdAt: "desc" },
       take: 50,
@@ -32,6 +39,26 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Account disabled" }, { status: 403 });
     }
     console.error("Notification list error:", error);
+    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+  }
+}
+
+export async function POST() {
+  try {
+    const user = await requireActiveUser();
+    const result = await prisma.notification.updateMany({
+      where: { userId: user.id, status: "unread" },
+      data: { status: "read" },
+    });
+    return NextResponse.json({ updated: result.count });
+  } catch (error) {
+    if (error instanceof Error && error.message === "UNAUTHORIZED") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    if (error instanceof Error && error.message === "USER_DISABLED") {
+      return NextResponse.json({ error: "Account disabled" }, { status: 403 });
+    }
+    console.error("Notification mark-all error:", error);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }

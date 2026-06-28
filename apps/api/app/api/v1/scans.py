@@ -32,7 +32,7 @@ from uuid import uuid4
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile
 from fastapi.responses import StreamingResponse
-from sqlalchemy import desc, select
+from sqlalchemy import desc, func, select
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
@@ -406,12 +406,15 @@ def list_findings(
         raise HTTPException(status_code=404, detail="Scan not found")
 
     query = select(Finding).where(Finding.scan_id == scan.id)
+    count_query = select(func.count()).select_from(Finding).where(Finding.scan_id == scan.id)
     if severity:
-        query = query.where(Finding.severity == severity.lower())
+        query = query.where(func.lower(Finding.severity) == severity.lower())
+        count_query = count_query.where(func.lower(Finding.severity) == severity.lower())
     if status:
         query = query.where(Finding.status == status)
+        count_query = count_query.where(Finding.status == status)
 
-    total = db.scalar(select(Finding).where(Finding.scan_id == scan.id).with_only_columns(Finding.id).order_by(None).subquery().c.id.count()) or 0
+    total = db.scalar(count_query) or 0
     records = db.scalars(query.offset((page - 1) * page_size).limit(page_size)).all()
 
     return {

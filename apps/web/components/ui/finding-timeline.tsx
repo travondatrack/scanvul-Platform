@@ -22,6 +22,22 @@ function formatRelativeTime(dateString: string) {
   return formatVietnamDate(date);
 }
 
+function renderComment(ev: any) {
+  if (ev.eventType !== "ai_review" || !ev.comment) return ev.comment;
+  try {
+    const review = JSON.parse(ev.comment);
+    return [
+      review.isLikelyTruePositive === true ? "AI verdict: likely true positive." : "AI verdict: likely false positive.",
+      review.confidence !== undefined ? `Confidence: ${Math.round(Number(review.confidence) * 100)}%.` : "",
+      review.explanation ? `Explanation: ${review.explanation}` : "",
+      review.suggestedFix ? `Suggested fix: ${review.suggestedFix}` : "",
+      review.pentestSuggestion ? `Pentest: ${review.pentestSuggestion}` : "",
+    ].filter(Boolean).join("\n");
+  } catch {
+    return ev.comment;
+  }
+}
+
 export function FindingTimeline({ findingId }: { findingId: string }) {
   const [events, setEvents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -83,10 +99,11 @@ export function FindingTimeline({ findingId }: { findingId: string }) {
                   {ev.eventType === "verification_status_changed" && ` changed verification to ${ev.newValue}`}
                   {ev.eventType === "comment" && " left a comment"}
                   {ev.eventType === "assigned" && " assigned this finding"}
+                  {ev.eventType === "ai_review" && " ran AI review"}
                 </p>
                 {ev.comment && (
                   <div className="mt-1 rounded bg-slate-100 dark:bg-zinc-800 p-2 text-slate-700 dark:text-zinc-300 whitespace-pre-wrap">
-                    {ev.comment}
+                    {renderComment(ev)}
                   </div>
                 )}
                 <p className="mt-1 text-xs text-slate-500">
