@@ -40,6 +40,21 @@ export type FindingStatus = (typeof FINDING_STATUSES)[number];
 export type VerificationStatus = (typeof VERIFICATION_STATUSES)[number];
 export type OrganizationRole = (typeof ORGANIZATION_ROLES)[number];
 
+export const GLOBAL_ROLES = ["user", "admin", "support_admin", "security_admin", "super_admin"] as const;
+export type GlobalRole = (typeof GLOBAL_ROLES)[number];
+
+export const ADMIN_AUDIT_ACTIONS = {
+  USER_LOCKED: "ADMIN_USER_LOCKED",
+  USER_UNLOCKED: "ADMIN_USER_UNLOCKED",
+  USER_ROLE_CHANGED: "ADMIN_USER_ROLE_CHANGED",
+  SCAN_CANCELLED: "ADMIN_SCAN_CANCELLED",
+  PROJECT_VIEWED: "ADMIN_PROJECT_VIEWED",
+  ORG_VIEWED: "ADMIN_ORG_VIEWED",
+  HEALTH_VIEWED: "ADMIN_HEALTH_VIEWED",
+  SETTINGS_UPDATED: "ADMIN_SETTINGS_UPDATED",
+  SUPPORT_ACCESS_USED: "ADMIN_SUPPORT_ACCESS_USED",
+} as const;
+
 export function isOneOf<T extends readonly string[]>(values: T, value: unknown): value is T[number] {
   return typeof value === "string" && values.includes(value);
 }

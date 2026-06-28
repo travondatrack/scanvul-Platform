@@ -5,8 +5,9 @@ const config: Config = {
   testEnvironment: "node",
   moduleNameMapper: {
     "^@/(.*)$": "<rootDir>/$1",
+    "^@auth/prisma-adapter$": "<rootDir>/__tests__/__mocks__/prisma-adapter.ts",
   },
-  testMatch: ["**/__tests__/**/*.test.ts"],
+  testMatch: ["**/__tests__/**/*.test.ts", "**/__tests__/**/*.test.tsx"],
   transform: {
     "^.+\\.tsx?$": [
       "ts-jest",
@@ -16,6 +17,7 @@ const config: Config = {
           moduleResolution: "node",
           esModuleInterop: true,
           allowSyntheticDefaultImports: true,
+          jsx: "react-jsx",
         },
       },
     ],

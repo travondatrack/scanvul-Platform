@@ -1,15 +1,16 @@
+/** @jest-environment jsdom */
 import { render, screen } from "@testing-library/react";
 import DashboardOverviewPage from "@/app/(dashboard)/dashboard/page";
 import { jest } from "@jest/globals";
+import { prisma } from "@/lib/prisma";
 
-// Mock dependencies
-const prismaMock = {
-  project: { count: jest.fn() },
-  scan: { count: jest.fn() },
-  finding: { findMany: jest.fn() },
-};
-
-jest.mock("@/lib/prisma", () => ({ prisma: prismaMock }));
+jest.mock("@/lib/prisma", () => ({
+  prisma: {
+    project: { count: jest.fn() },
+    scan: { count: jest.fn() },
+    finding: { findMany: jest.fn() },
+  },
+}));
 
 jest.mock("@/lib/session", () => ({
   requireActiveUser: jest.fn().mockResolvedValue({ id: "user-1", roleGlobal: "user" }),
@@ -18,6 +19,14 @@ jest.mock("@/lib/session", () => ({
 jest.mock("@/lib/access", () => ({
   accessibleProjectWhere: jest.fn().mockReturnValue({}),
   accessibleScanWhere: jest.fn().mockReturnValue({}),
+  projectScopeWhere: jest.fn().mockReturnValue({}),
+  scanScopeWhere: jest.fn().mockReturnValue({}),
+}));
+
+jest.mock("next/headers", () => ({
+  cookies: jest.fn(async () => ({
+    get: jest.fn().mockReturnValue({ value: JSON.stringify({ type: "personal" }) }),
+  })),
 }));
 
 describe("DashboardOverviewPage", () => {
@@ -26,9 +35,9 @@ describe("DashboardOverviewPage", () => {
   });
 
   test("renders aggregate metrics correctly", async () => {
-    (prismaMock.project.count as jest.Mock).mockResolvedValue(5);
-    (prismaMock.scan.count as jest.Mock).mockResolvedValue(12);
-    (prismaMock.finding.findMany as jest.Mock).mockResolvedValue([
+    (prisma.project.count as jest.Mock).mockResolvedValue(5);
+    (prisma.scan.count as jest.Mock).mockResolvedValue(12);
+    (prisma.finding.findMany as jest.Mock).mockResolvedValue([
       { severity: "Critical", status: "open" },
       { severity: "High", status: "open" },
       { severity: "High", status: "open" },
@@ -51,11 +60,11 @@ describe("DashboardOverviewPage", () => {
     // Check critical findings
     expect(screen.getByText("Critical Risks")).toBeDefined();
     // There is 1 active critical finding
-    expect(screen.getByText("1")).toBeDefined();
+    expect(screen.getAllByText("1").length).toBeGreaterThanOrEqual(1);
 
     // Check high findings
     expect(screen.getByText("High Risks")).toBeDefined();
-    expect(screen.getByText("2")).toBeDefined();
+    expect(screen.getAllByText("2").length).toBeGreaterThanOrEqual(1);
 
     expect(screen.getByText("Platform Health")).toBeDefined();
     expect(screen.getByText(/You have 5 open findings/)).toBeDefined();

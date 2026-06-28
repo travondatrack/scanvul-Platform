@@ -7,13 +7,13 @@ const VIEW_ROLES: OrganizationRole[] = ["owner", "admin", "member", "viewer"];
 const MANAGE_ROLES: OrganizationRole[] = ["owner", "admin"];
 const TRIGGER_ROLES: OrganizationRole[] = ["owner", "admin", "member"];
 
-async function isGlobalAdmin(userId: string) {
+export async function isGlobalAdmin(userId: string) {
   const user = await prisma.user.findUnique({
     where: { id: userId },
     select: { roleGlobal: true, status: true },
   });
 
-  return user?.status === "active" && user.roleGlobal === "admin";
+  return user?.status === "active" && (user.roleGlobal === "admin" || user.roleGlobal === "super_admin");
 }
 
 function rolesFor(action: ProjectAction) {
@@ -62,7 +62,7 @@ export function projectScopeWhere(
 ) {
   const scopeId = orgCtx?.type === "personal" ? null : (orgCtx?.id ?? undefined);
   
-  if (user.roleGlobal === "admin") {
+  if (user.roleGlobal === "admin" || user.roleGlobal === "super_admin") {
     if (scopeId !== undefined) {
       return { organizationId: scopeId };
     }
@@ -89,7 +89,7 @@ export function scanScopeWhere(
 ) {
   const scopeId = orgCtx?.type === "personal" ? null : (orgCtx?.id ?? undefined);
   
-  if (user.roleGlobal === "admin") {
+  if (user.roleGlobal === "admin" || user.roleGlobal === "super_admin") {
     if (scopeId !== undefined) {
       return { project: { organizationId: scopeId } };
     }

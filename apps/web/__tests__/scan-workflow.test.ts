@@ -33,6 +33,9 @@ const prismaMock = {
   user: {
     findUnique: jest.fn(),
   },
+  auditEvent: {
+    create: jest.fn().mockResolvedValue({}),
+  },
   organizationMember: {
     findFirst: jest.fn(),
   },

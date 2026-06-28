@@ -3,12 +3,21 @@ import { notFound } from "next/navigation";
 import { getBackend } from "@/lib/backend";
 import { Activity, CheckCircle, RefreshCw, XCircle, Server, Database, ShieldCheck } from "lucide-react";
 import { prisma } from "@/lib/prisma";
+import { logAudit } from "@/lib/audit";
+import { ADMIN_AUDIT_ACTIONS } from "@/lib/constants";
 
 export default async function AdminHealthPage() {
   const user = await requireActiveUser();
-  if (user.roleGlobal !== "admin") {
+  if (user.roleGlobal !== "admin" && user.roleGlobal !== "super_admin") {
     notFound();
   }
+
+  await logAudit({
+    userId: user.id,
+    action: ADMIN_AUDIT_ACTIONS.HEALTH_VIEWED,
+    entityType: "system",
+    entityId: "health",
+  });
 
   let health: any = null;
   let backendUp = false;

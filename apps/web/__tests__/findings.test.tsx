@@ -1,3 +1,4 @@
+/** @jest-environment jsdom */
 import { render, screen, fireEvent } from "@testing-library/react";
 import { FindingsPanel } from "@/components/ui/findings-panel";
 import { jest } from "@jest/globals";
@@ -13,6 +14,15 @@ jest.mock("next/navigation", () => ({
     };
   },
 }));
+
+beforeAll(() => {
+  global.fetch = jest.fn(() =>
+    Promise.resolve({
+      ok: true,
+      json: () => Promise.resolve({ items: [] }),
+    })
+  ) as any;
+});
 
 const mockFindings = [
   {
@@ -102,8 +112,8 @@ describe("FindingsPanel", () => {
     
     // Find the severity select
     const selects = screen.getAllByRole("combobox");
-    // Severity is the second select
-    const severitySelect = selects[1];
+    // Severity is the first select
+    const severitySelect = selects[0];
     
     // Change to Critical
     fireEvent.change(severitySelect, { target: { value: "Critical" } });

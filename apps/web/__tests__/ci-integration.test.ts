@@ -13,6 +13,9 @@ const prismaMock = {
     findFirst: jest.fn(),
     update: jest.fn(),
   },
+  auditEvent: {
+    create: jest.fn().mockResolvedValue({}),
+  },
 };
 
 jest.mock("@/lib/prisma", () => ({ prisma: prismaMock }));

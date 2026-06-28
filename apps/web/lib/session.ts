@@ -47,3 +47,11 @@ export async function requireActiveUser() {
   }
   return user;
 }
+
+export async function requireGlobalAdmin() {
+  const user = await requireActiveUser();
+  if (user.roleGlobal !== "admin" && user.roleGlobal !== "super_admin") {
+    throw new Error("FORBIDDEN");
+  }
+  return user;
+}
