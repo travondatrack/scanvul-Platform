@@ -135,11 +135,34 @@ export const authOptions: NextAuthOptions = {
         });
 
         if (!dbUser) {
+          // New user — allow NextAuth to create account
           return true;
         }
 
         if (dbUser.status !== "active") {
           return false;
+        }
+
+        // Auto-link Google account to existing user if not linked yet
+        const existingAccount = await prisma.account.findFirst({
+          where: { userId: dbUser.id, provider: "google" },
+        });
+
+        if (!existingAccount && account.providerAccountId) {
+          await prisma.account.create({
+            data: {
+              userId: dbUser.id,
+              type: account.type,
+              provider: account.provider,
+              providerAccountId: account.providerAccountId,
+              access_token: account.access_token,
+              refresh_token: account.refresh_token,
+              expires_at: account.expires_at,
+              token_type: account.token_type,
+              scope: account.scope,
+              id_token: account.id_token,
+            },
+          });
         }
 
         if (!dbUser.emailVerified) {
@@ -148,6 +171,9 @@ export const authOptions: NextAuthOptions = {
             data: { emailVerified: new Date() },
           });
         }
+
+        // Override user.id so JWT picks up the correct existing user
+        user.id = dbUser.id;
 
         return true;
       }
