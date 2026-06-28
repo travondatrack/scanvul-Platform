@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireActiveUser } from "@/lib/session";
-import { canManageFinding } from "@/lib/access";
+import { canManageFinding, isEligibleProjectAssignee } from "@/lib/access";
+import { createAuditEvent } from "@/lib/audit";
+import { NOTIFICATION_TYPES } from "@/lib/constants";
+import { createFindingEvent, displayUserName } from "@/lib/finding-events";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -12,18 +15,33 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const resolvedParams = await Promise.resolve(params);
     const existing = await prisma.finding.findUnique({
       where: { id: resolvedParams.id },
-      select: { id: true, assigneeId: true },
+      select: {
+        id: true,
+        title: true,
+        assigneeId: true,
+        projectId: true,
+        scanId: true,
+      },
     });
 
     if (!existing || !(await canManageFinding(user.id, resolvedParams.id))) {
       return NextResponse.json({ error: "Finding not found or unauthorized" }, { status: 404 });
     }
 
-    // Optionally check if assigneeId belongs to the org/project. For now just check if user exists.
+    if (!existing.projectId) {
+      return NextResponse.json({ error: "Finding is not linked to a project" }, { status: 400 });
+    }
+
     if (assigneeId) {
-      const targetUser = await prisma.user.findUnique({ where: { id: assigneeId } });
+      const [targetUser, eligible] = await Promise.all([
+        prisma.user.findUnique({ where: { id: assigneeId }, select: { id: true, status: true } }),
+        isEligibleProjectAssignee(existing.projectId, assigneeId),
+      ]);
       if (!targetUser) {
         return NextResponse.json({ error: "Assignee not found" }, { status: 400 });
+      }
+      if (targetUser.status !== "active" || !eligible) {
+        return NextResponse.json({ error: "Assignee is not a member of this project scope" }, { status: 400 });
       }
     }
 
@@ -32,6 +50,47 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         where: { id: resolvedParams.id },
         data: { assigneeId: assigneeId || null },
       });
+
+      if ((assigneeId || null) !== existing.assigneeId) {
+        await createFindingEvent(tx, {
+          findingId: existing.id,
+          userId: user.id,
+          eventType: assigneeId ? "assigned" : "unassigned",
+          oldValue: existing.assigneeId,
+          newValue: assigneeId || null,
+        });
+
+        await createAuditEvent(tx, {
+          userId: user.id,
+          action: "finding.assign",
+          entityType: "Finding",
+          entityId: existing.id,
+          metadata: {
+            projectId: existing.projectId,
+            scanId: existing.scanId,
+            oldValue: existing.assigneeId,
+            newValue: assigneeId || null,
+          },
+          ipAddress: req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? req.headers.get("x-real-ip"),
+        });
+
+        if (assigneeId && assigneeId !== user.id) {
+          await tx.notification.create({
+            data: {
+              userId: assigneeId,
+              type: NOTIFICATION_TYPES.findingAssigned,
+              title: "Finding assigned to you",
+              message: `${displayUserName(user)} assigned ${existing.title} to you.`,
+              payload: JSON.stringify({
+                findingId: existing.id,
+                projectId: existing.projectId,
+                scanId: existing.scanId,
+                actorId: user.id,
+              }),
+            },
+          });
+        }
+      }
 
       return updated;
     });

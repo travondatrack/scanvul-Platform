@@ -47,7 +47,7 @@ export async function DELETE(
     await prisma.organization.delete({ where: { id } });
 
     await createNotifications(
-      organization.members.map((member) => ({
+      organization.members.filter((member) => member.userId !== user.id).map((member) => ({
         userId: member.userId,
         type: "team_deleted",
         title: "Team deleted",

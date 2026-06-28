@@ -47,7 +47,7 @@ export default function NotificationsPage() {
     fetchNotifications();
   }, [fetchNotifications]);
 
-  async function actionInvite(notificationId: string, action: "accept" | "decline") {
+  async function actionInvite(notificationId: string, action: "accept" | "reject") {
     setActingId(notificationId);
     setError("");
     try {
@@ -137,11 +137,11 @@ export default function NotificationsPage() {
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => actionInvite(item.id, "decline")}
+                          onClick={() => actionInvite(item.id, "reject")}
                           disabled={actingId === item.id}
                         >
                           <X className="h-4 w-4" />
-                          Decline
+                          Reject
                         </Button>
                       </>
                     ) : isUnread ? (

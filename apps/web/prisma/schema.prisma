@@ -24,6 +24,8 @@ model User {
   sessions         Session[]
   emailVerificationOtps EmailVerificationOtp[]
   notifications    Notification[]
+  findingEvents    FindingEvent[]
+  organizationInvitesSent OrganizationInvite[] @relation("OrganizationInviteInviter")
 
   assignedFindings Finding[]
 }
@@ -90,6 +92,8 @@ model Organization {
   updatedAt DateTime             @updatedAt
   members   OrganizationMember[]
   projects  Project[]
+  invites   OrganizationInvite[]
+  scannerPolicies ScannerPolicy[]
 }
 
 model OrganizationMember {
@@ -124,6 +128,7 @@ model Project {
   findings       Finding[]
   scans          Scan[]
   apiTokens      ApiToken[]
+  scannerPolicies ScannerPolicy[]
 
   @@index([createdBy], map: "Project_createdBy_fkey")
   @@index([organizationId], map: "Project_organizationId_fkey")
@@ -238,6 +243,7 @@ model Finding {
   project            Project?       @relation(fields: [projectId], references: [id], onDelete: Cascade)
   scan               Scan           @relation(fields: [scanId], references: [id], onDelete: Cascade)
   assignee           User?          @relation(fields: [assigneeId], references: [id])
+  events             FindingEvent[]
 
   @@index([projectId], map: "findings_project_id_fkey")
   @@index([scanId], map: "findings_scan_id_fkey")
@@ -245,9 +251,27 @@ model Finding {
   @@map("findings")
 }
 
+model FindingEvent {
+  id        String   @id @default(cuid())
+  findingId String   @map("finding_id")
+  userId    String?  @map("user_id")
+  eventType String   @map("event_type")
+  comment   String?  @db.Text
+  oldValue  String?  @map("old_value") @db.Text
+  newValue  String?  @map("new_value") @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+
+  finding Finding @relation(fields: [findingId], references: [id], onDelete: Cascade)
+  user    User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([findingId, createdAt], map: "finding_events_finding_id_created_at_idx")
+  @@index([userId], map: "finding_events_user_id_idx")
+  @@map("finding_events")
+}
+
 
 model uploaded_assets {
-  id         String   @id @db.VarChar(36)
+  id         String   @id @db.VarChar(191)
   file_name  String   @db.VarChar(255)
   object_key String   @db.VarChar(255)
   size_bytes Int
@@ -286,4 +310,45 @@ model Notification {
 
   @@index([userId, status, createdAt])
   @@map("notifications")
+}
+
+model OrganizationInvite {
+  id             String       @id @default(cuid())
+  organizationId String       @map("organization_id")
+  email          String
+  role           String       @default("member")
+  tokenHash      String       @unique @map("token_hash")
+  status         String       @default("pending")
+  invitedBy      String       @map("invited_by")
+  expiresAt      DateTime     @map("expires_at")
+  acceptedAt     DateTime?    @map("accepted_at")
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  inviter        User         @relation("OrganizationInviteInviter", fields: [invitedBy], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, status, createdAt], map: "organization_invites_org_status_idx")
+  @@index([email, status], map: "organization_invites_email_status_idx")
+  @@map("organization_invites")
+}
+
+model ScannerPolicy {
+  id                        String       @id @default(cuid())
+  organizationId            String?      @map("organization_id")
+  projectId                 String?      @map("project_id")
+  enabledEngines            String       @default("[\"semgrep\",\"bandit\",\"eslint\",\"owasp\",\"trivy\",\"secrets\"]") @map("enabled_engines") @db.Text
+  severityThreshold         String       @default("Info") @map("severity_threshold")
+  ruleOverrides             String?      @map("rule_overrides") @db.Text
+  aiTriageEnabled           Boolean      @default(true) @map("ai_triage_enabled")
+  secretVerificationEnabled Boolean      @default(false) @map("secret_verification_enabled")
+  createdAt                 DateTime     @default(now()) @map("created_at")
+  updatedAt                 DateTime     @updatedAt @map("updated_at")
+
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  project      Project?      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId], map: "scanner_policies_organization_id_key")
+  @@unique([projectId], map: "scanner_policies_project_id_key")
+  @@map("scanner_policies")
 }

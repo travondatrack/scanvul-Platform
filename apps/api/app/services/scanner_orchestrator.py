@@ -393,9 +393,12 @@ def run_hybrid_scan(
     source_dir: Path,
     source_type: str = "",
     source_value: str = "",
-    log_event: Optional[Callable[[str, str], None]] = None
+    log_event: Optional[Callable[[str, str], None]] = None,
+    policy: Optional[dict] = None,
 ) -> tuple[list[EngineFinding], dict, dict, str, float]:
     findings: list[EngineFinding] = []
+    policy = policy or {}
+    enabled = set(policy.get("enabled_engines") or ["semgrep", "bandit", "eslint", "owasp", "trivy", "secrets"])
 
     def _log(event_type: str, msg: str = "") -> None:
         if log_event:
@@ -403,18 +406,25 @@ def run_hybrid_scan(
 
     # ── Stage 1: SAST ──────────────────────────────────────────────────────
     _log("sast_scan_started", "Running SAST engines (Semgrep, Bandit, ESLint, Patterns)...")
-    findings.extend(run_semgrep(source_dir))
-    findings.extend(run_bandit(source_dir))
-    findings.extend(run_eslint_security(source_dir))
-    findings.extend(run_owasp_patterns_scan(source_dir))
+    if "semgrep" in enabled:
+        findings.extend(run_semgrep(source_dir))
+    if "bandit" in enabled:
+        findings.extend(run_bandit(source_dir))
+    if "eslint" in enabled:
+        findings.extend(run_eslint_security(source_dir))
+    if "owasp" in enabled:
+        findings.extend(run_owasp_patterns_scan(source_dir))
 
     # ── Stage 2: Dependency scan ───────────────────────────────────────────
-    _log("dependency_scan_started", "Running Trivy dependency scan...")
-    findings.extend(run_trivy_dependencies(source_dir))
+    if "trivy" in enabled:
+        _log("dependency_scan_started", "Running Trivy dependency scan...")
+        findings.extend(run_trivy_dependencies(source_dir))
 
     # ── Stage 3: Secret scan (opt-in live verification) ───────────────────
-    _log("secret_scan_started", "Running Secret scan...")
-    findings.extend(run_secret_scan(source_dir, verify_enabled=settings.secret_verify_enabled))
+    if "secrets" in enabled:
+        _log("secret_scan_started", "Running Secret scan...")
+        verify_secrets = bool(policy.get("secret_verification_enabled", settings.secret_verify_enabled))
+        findings.extend(run_secret_scan(source_dir, verify_enabled=verify_secrets))
 
     # ── Stage 4: Attack chain correlation ─────────────────────────────────
     findings = _add_attack_chain_findings(findings)
@@ -426,14 +436,18 @@ def run_hybrid_scan(
     findings = _deduplicate_findings(findings)
 
     # ── Stage 7: AI triage (post-scan, adjusts confidence + status) ────────
-    if settings.llm_api_key:
+    if settings.llm_api_key and policy.get("ai_triage_enabled", True):
         _log("ai_triage_started", "Running AI triage on findings...")
-    findings = run_ai_triage(findings, source_dir)
+        findings = run_ai_triage(findings, source_dir)
 
     # ── Stage 8: Confidence floor + triage stats ────────────────────────────
     # AI is never allowed to zero-out confidence (findings are never silently deleted)
     for f in findings:
         f.confidence = max(f.confidence, 0.05)
+
+    threshold = policy.get("severity_threshold") or "Info"
+    min_rank = SEVERITY_SCORE.get(threshold, 0)
+    findings = [item for item in findings if SEVERITY_SCORE.get(item.severity, 0) >= min_rank]
 
     _log_triage_stats(findings)
 

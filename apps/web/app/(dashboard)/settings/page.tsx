@@ -1,11 +1,10 @@
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "../../../lib/auth";
-import { User, Mail, Key, Bell, Shield } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { User, Key, Bell, Shield } from "lucide-react";
 import { Card } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { PageHeader } from "@/components/ui/page-header";
 import { DeleteAccountDialog } from "@/components/DeleteAccountDialog";
+import { ProfileSettingsForm } from "@/components/ProfileSettingsForm";
 
 export default async function SettingsPage() {
   const session = await getServerSession(authOptions);
@@ -44,62 +43,11 @@ export default async function SettingsPage() {
           <Card className="p-6">
             <h2 className="text-xl font-bold text-foreground mb-6">Profile Information</h2>
             
-            <div className="flex items-center space-x-6 mb-8">
-              <div className="w-24 h-24 rounded-xl bg-muted border border-border overflow-hidden">
-                {session?.user?.image ? (
-                  <img src={session.user.image} alt="Avatar" className="w-full h-full object-cover" />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-muted-foreground text-3xl font-bold">
-                    {session?.user?.name?.charAt(0) || "U"}
-                  </div>
-                )}
-              </div>
-              <div>
-                <Button type="button" variant="outline" className="mb-2">
-                  Change Avatar
-                </Button>
-                <p className="text-xs text-muted-foreground">JPG, GIF or PNG. Max size of 2MB.</p>
-              </div>
-            </div>
-
-            <form className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <label className="text-xs font-medium text-muted-foreground ml-1">Full Name</label>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <User className="h-4 w-4 text-muted-foreground" />
-                    </div>
-                    <Input
-                      type="text"
-                      defaultValue={session?.user?.name || ""}
-                      className="pl-10"
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-xs font-medium text-muted-foreground ml-1">Email Address</label>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <Mail className="h-4 w-4 text-muted-foreground" />
-                    </div>
-                    <Input
-                      type="email"
-                      defaultValue={session?.user?.email || ""}
-                      disabled
-                      className="pl-10"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="pt-4 flex justify-end">
-                <Button type="button">
-                  Save Changes
-                </Button>
-              </div>
-            </form>
+            <ProfileSettingsForm
+              initialName={session?.user?.name || ""}
+              email={session?.user?.email || ""}
+              initialImage={session?.user?.image || ""}
+            />
           </Card>
 
           <Card className="border-destructive/20 bg-destructive/5 p-6">

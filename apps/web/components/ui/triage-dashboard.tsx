@@ -87,6 +87,63 @@ function VerificationBadge({ status }: { status: string }) {
   );
 }
 
+function AssigneeSelect({ finding }: { finding: FindingItem }) {
+  const router = useRouter();
+  const [items, setItems] = useState<Array<{ id: string; name: string | null; email: string | null }>>([]);
+  const [value, setValue] = useState(finding.assigneeId ?? "");
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`/api/findings/${finding.id}/assignees`)
+      .then((res) => res.ok ? res.json() : { items: [] })
+      .then((data) => {
+        if (!cancelled) setItems(data.items ?? []);
+      })
+      .catch(() => {
+        if (!cancelled) setItems([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [finding.id]);
+
+  async function updateAssignee(nextValue: string) {
+    setValue(nextValue);
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/findings/${finding.id}/assign`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ assigneeId: nextValue || null }),
+      });
+      if (!res.ok) {
+        setValue(finding.assigneeId ?? "");
+        return;
+      }
+      router.refresh();
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <select
+      value={value}
+      onChange={(e) => updateAssignee(e.target.value)}
+      disabled={loading}
+      className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm focus:outline-none focus:border-brand disabled:opacity-60"
+    >
+      <option value="">Unassigned</option>
+      {items.map((item) => (
+        <option key={item.id} value={item.id}>
+          {item.name || item.email || item.id}
+        </option>
+      ))}
+    </select>
+  );
+}
+
 export function TriageDashboard({ 
   scan, 
   findings, 
@@ -109,6 +166,15 @@ export function TriageDashboard({
   
   const router = useRouter();
   const prevStatus = useRef(scan.status);
+
+  const updateFinding = async (id: string, payload: Record<string, string>) => {
+    const res = await fetch(`/api/findings/${id}/status`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (res.ok) router.refresh();
+  };
 
   // Auto-refresh when scan is running
   useEffect(() => {
@@ -515,6 +581,44 @@ export function TriageDashboard({
                 
                 {detailTab === 'triage' && (
                   <div className="space-y-6">
+                     <div className="grid gap-3">
+                       <label className="grid gap-1.5">
+                         <span className="text-xs font-bold uppercase text-muted-foreground">Status</span>
+                         <select
+                           value={selectedFinding.status || "open"}
+                           onChange={(e) => updateFinding(selectedFinding.id, { status: e.target.value })}
+                           className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm focus:outline-none focus:border-brand"
+                         >
+                           <option value="open">Open</option>
+                           <option value="confirmed">Confirmed</option>
+                           <option value="in_progress">In Progress</option>
+                           <option value="fixed">Fixed</option>
+                           <option value="accepted_risk">Accepted Risk</option>
+                           <option value="false_positive">False Positive</option>
+                           <option value="ignored">Ignored</option>
+                           <option value="reopened">Reopened</option>
+                         </select>
+                       </label>
+                       <label className="grid gap-1.5">
+                         <span className="text-xs font-bold uppercase text-muted-foreground">Verification</span>
+                         <select
+                           value={selectedFinding.verificationStatus || "unverified"}
+                           onChange={(e) => updateFinding(selectedFinding.id, { verification_status: e.target.value })}
+                           className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm focus:outline-none focus:border-brand"
+                         >
+                           <option value="unverified">Unverified</option>
+                           <option value="verified">Verified</option>
+                           <option value="needs_review">Needs Review</option>
+                           <option value="false_positive_likely">FP Likely</option>
+                           <option value="skipped">Skipped</option>
+                           <option value="failed">Verify Failed</option>
+                         </select>
+                       </label>
+                       <label className="grid gap-1.5">
+                         <span className="text-xs font-bold uppercase text-muted-foreground">Assignee</span>
+                         <AssigneeSelect finding={selectedFinding} />
+                       </label>
+                     </div>
                      <div className="rounded-xl bg-slate-50 dark:bg-white/5 border border-border/50 p-4">
                        <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200 mb-4">Event Timeline</h4>
                        <FindingTimeline findingId={selectedFinding.id} />

@@ -2,26 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireActiveUser } from "@/lib/session";
 import { canManageFinding } from "@/lib/access";
-
-const ALLOWED_STATUSES = new Set([
-  "open",
-  "confirmed",
-  "in_progress",
-  "fixed",
-  "accepted_risk",
-  "false_positive",
-  "ignored",
-  "reopened",
-]);
-
-const ALLOWED_VERIFICATION_STATUSES = new Set([
-  "unverified",
-  "verified",
-  "failed",
-  "skipped",
-  "needs_review",
-  "false_positive_likely",
-]);
+import { createAuditEvent } from "@/lib/audit";
+import { FINDING_STATUSES, VERIFICATION_STATUSES, isOneOf } from "@/lib/constants";
+import { createFindingEvent } from "@/lib/finding-events";
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -29,11 +12,11 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const body = await req.json();
     const { status, verification_status, comment } = body;
 
-    if (status && !ALLOWED_STATUSES.has(status)) {
+    if (status && !isOneOf(FINDING_STATUSES, status)) {
       return NextResponse.json({ error: "Invalid finding status" }, { status: 400 });
     }
     
-    if (verification_status && !ALLOWED_VERIFICATION_STATUSES.has(verification_status)) {
+    if (verification_status && !isOneOf(VERIFICATION_STATUSES, verification_status)) {
       return NextResponse.json({ error: "Invalid verification status" }, { status: 400 });
     }
 
@@ -44,7 +27,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const resolvedParams = await Promise.resolve(params);
     const existing = await prisma.finding.findFirst({
       where: { id: resolvedParams.id },
-      select: { id: true, status: true, verificationStatus: true },
+      select: { id: true, status: true, verificationStatus: true, projectId: true, scanId: true },
     });
 
     if (!existing || !(await canManageFinding(user.id, resolvedParams.id))) {
@@ -59,6 +42,50 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       const updated = await tx.finding.update({
         where: { id: resolvedParams.id },
         data: dataToUpdate,
+      });
+
+      if (status && status !== existing.status) {
+        await createFindingEvent(tx, {
+          findingId: existing.id,
+          userId: user.id,
+          eventType: "status_changed",
+          oldValue: existing.status,
+          newValue: status,
+        });
+      }
+
+      if (verification_status && verification_status !== existing.verificationStatus) {
+        await createFindingEvent(tx, {
+          findingId: existing.id,
+          userId: user.id,
+          eventType: "verification_status_changed",
+          oldValue: existing.verificationStatus,
+          newValue: verification_status,
+        });
+      }
+
+      const trimmedComment = typeof comment === "string" ? comment.trim().slice(0, 5000) : "";
+      if (trimmedComment) {
+        await createFindingEvent(tx, {
+          findingId: existing.id,
+          userId: user.id,
+          eventType: "comment",
+          comment: trimmedComment,
+        });
+      }
+
+      await createAuditEvent(tx, {
+        userId: user.id,
+        action: "finding.triage.update",
+        entityType: "Finding",
+        entityId: existing.id,
+        metadata: {
+          projectId: existing.projectId,
+          scanId: existing.scanId,
+          status: status ? { oldValue: existing.status, newValue: status } : undefined,
+          verificationStatus: verification_status ? { oldValue: existing.verificationStatus, newValue: verification_status } : undefined,
+        },
+        ipAddress: req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? req.headers.get("x-real-ip"),
       });
 
       return updated;

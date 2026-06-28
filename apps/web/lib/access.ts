@@ -156,6 +156,45 @@ export async function canManageFinding(userId: string, findingId: string) {
   return Boolean(finding);
 }
 
+export async function getEligibleProjectAssignees(projectId: string) {
+  const project = await prisma.project.findUnique({
+    where: { id: projectId },
+    select: {
+      id: true,
+      createdBy: true,
+      organizationId: true,
+      organization: {
+        select: {
+          members: {
+            select: {
+              user: { select: { id: true, name: true, email: true, image: true, status: true } },
+              role: true,
+            },
+          },
+        },
+      },
+      user: { select: { id: true, name: true, email: true, image: true, status: true } },
+    },
+  });
+
+  if (!project) return [];
+
+  if (project.organizationId) {
+    return project.organization?.members
+      .filter((member) => member.user.status === "active")
+      .map((member) => ({ ...member.user, role: member.role })) ?? [];
+  }
+
+  return project.user && project.user.status === "active"
+    ? [{ ...project.user, role: "owner" }]
+    : [];
+}
+
+export async function isEligibleProjectAssignee(projectId: string, assigneeId: string) {
+  const assignees = await getEligibleProjectAssignees(projectId);
+  return assignees.some((assignee) => assignee.id === assigneeId);
+}
+
 export async function requireProjectAccess(
   userId: string,
   projectId: string,

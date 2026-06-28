@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 from uuid import uuid4
 
-from sqlalchemy import DateTime, Float, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -127,3 +127,34 @@ class PublicBadge(Base):
     expires_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.utcnow() + timedelta(days=30))
 
     scan: Mapped[Scan] = relationship(back_populates="badges")
+
+
+class Notification(Base):
+    __tablename__ = "notifications"
+
+    id: Mapped[str] = mapped_column(String(191), primary_key=True, default=lambda: str(uuid4()))
+    user_id: Mapped[str] = mapped_column("userId", String(191), nullable=False)
+    type: Mapped[str] = mapped_column(String(191), nullable=False)
+    title: Mapped[str] = mapped_column(String(191), nullable=False)
+    message: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[str] = mapped_column(String(191), default="unread")
+    payload: Mapped[str] = mapped_column(Text, nullable=True)
+    read_at: Mapped[datetime] = mapped_column("readAt", DateTime, nullable=True)
+    acted_at: Mapped[datetime] = mapped_column("actedAt", DateTime, nullable=True)
+    created_at: Mapped[datetime] = mapped_column("createdAt", DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column("updatedAt", DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class ScannerPolicy(Base):
+    __tablename__ = "scanner_policies"
+
+    id: Mapped[str] = mapped_column(String(191), primary_key=True, default=lambda: str(uuid4()))
+    organization_id: Mapped[str] = mapped_column(String(191), nullable=True)
+    project_id: Mapped[str] = mapped_column(String(191), nullable=True)
+    enabled_engines: Mapped[str] = mapped_column(Text, default='["semgrep","bandit","eslint","owasp","trivy","secrets"]')
+    severity_threshold: Mapped[str] = mapped_column(String(191), default="Info")
+    rule_overrides: Mapped[str] = mapped_column(Text, nullable=True)
+    ai_triage_enabled: Mapped[bool] = mapped_column(default=True)
+    secret_verification_enabled: Mapped[bool] = mapped_column(default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

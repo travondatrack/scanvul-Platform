@@ -137,6 +137,58 @@ function ReferenceLinks({ references }: { references: string }) {
   );
 }
 
+function AssigneeSelect({ finding }: { finding: FindingItem }) {
+  const router = useRouter();
+  const [items, setItems] = useState<Array<{ id: string; name: string | null; email: string | null }>>([]);
+  const [value, setValue] = useState(finding.assigneeId ?? "");
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`/api/findings/${finding.id}/assignees`)
+      .then((res) => res.ok ? res.json() : { items: [] })
+      .then((data) => {
+        if (!cancelled) setItems(data.items ?? []);
+      })
+      .catch(() => {
+        if (!cancelled) setItems([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [finding.id]);
+
+  async function updateAssignee(nextValue: string) {
+    setValue(nextValue);
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/findings/${finding.id}/assign`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ assigneeId: nextValue || null }),
+      });
+      if (!res.ok) {
+        setValue(finding.assigneeId ?? "");
+        return;
+      }
+      router.refresh();
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <Select value={value} onChange={(e) => updateAssignee(e.target.value)} disabled={loading}>
+      <option value="">Unassigned</option>
+      {items.map((item) => (
+        <option key={item.id} value={item.id}>
+          {item.name || item.email || item.id}
+        </option>
+      ))}
+    </Select>
+  );
+}
+
 export function FindingsPanel({ findings }: { findings: FindingItem[] }) {
   const [severity, setSeverity] = useState("All");
   const [query, setQuery] = useState("");
@@ -477,6 +529,10 @@ export function FindingsPanel({ findings }: { findings: FindingItem[] }) {
                                 <ShieldAlert className="w-3.5 h-3.5" /> Attack Scenario
                               </h4>
                               <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">{item.attackScenario}</p>
+                            </div>
+                            <div className="rounded-xl bg-slate-50 dark:bg-white/5 border border-border/50 dark:border-white/10 p-4">
+                              <label className="block text-xs font-bold uppercase text-slate-500 dark:text-slate-400 mb-2">Assignee</label>
+                              <AssigneeSelect finding={item} />
                             </div>
                           </div>
                         </div>

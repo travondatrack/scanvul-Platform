@@ -10,6 +10,9 @@ const prismaMock = {
   findingEvent: {
     create: jest.fn(),
   },
+  auditEvent: {
+    create: jest.fn(),
+  },
   $transaction: jest.fn((callback: any) => callback(prismaMock)),
 };
 
@@ -66,6 +69,8 @@ describe("PATCH /api/findings/[id]/status", () => {
       id: "f-1",
       status: "open",
       verificationStatus: "unverified",
+      projectId: "p-1",
+      scanId: "s-1",
     });
     
     (prismaMock.finding.update as jest.Mock).mockResolvedValue({
@@ -90,9 +95,20 @@ describe("PATCH /api/findings/[id]/status", () => {
         eventType: "status_changed",
         oldValue: "open",
         newValue: "confirmed",
+        comment: null,
+      },
+    });
+    expect(prismaMock.findingEvent.create).toHaveBeenCalledWith({
+      data: {
+        findingId: "f-1",
+        userId: "user-1",
+        eventType: "comment",
+        oldValue: null,
+        newValue: null,
         comment: "Verified by me",
       },
     });
+    expect(prismaMock.auditEvent.create).toHaveBeenCalled();
   });
 
   test("returns 404 if finding not found", async () => {

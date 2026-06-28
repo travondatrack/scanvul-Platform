@@ -11,7 +11,7 @@ from sqlalchemy.exc import OperationalError, IntegrityError
 
 from app.core.config import settings
 from app.db.session import SessionLocal
-from app.models.scan import Finding, Scan, ScanEvent, UploadedAsset
+from app.models.scan import Finding, Notification, Scan, ScanEvent, ScannerPolicy, UploadedAsset
 from app.services.source_ingestion import cleanup_source, ingest_source
 from app.services.scanner_orchestrator import run_hybrid_scan
 from app.worker.celery_app import celery_app
@@ -102,6 +102,48 @@ def _delete_findings_safe(db, scan_id: str, max_retries: int = 3) -> None:
                 raise
 
 
+def _scan_notification(db, scan: Scan, status: str) -> None:
+    if not scan.triggered_by:
+        return
+    title = "Scan completed" if status == "completed" else "Scan failed"
+    message = (
+        f"Scan {scan.id} completed with risk {scan.risk_level}."
+        if status == "completed"
+        else f"Scan {scan.id} failed."
+    )
+    db.add(Notification(
+        user_id=scan.triggered_by,
+        type="scan_completed" if status == "completed" else "scan_failed",
+        title=title,
+        message=message,
+        payload=json.dumps({
+            "scanId": scan.id,
+            "projectId": scan.project_id,
+            "status": status,
+            "riskLevel": scan.risk_level,
+            "riskPercent": scan.risk_percent,
+        }),
+    ))
+
+
+def _load_scanner_policy(db, project_id: str | None) -> dict:
+    if not project_id:
+        return {}
+    policy = db.query(ScannerPolicy).filter(ScannerPolicy.project_id == project_id).first()
+    if policy is None:
+        return {}
+    try:
+        enabled_engines = json.loads(policy.enabled_engines or "[]")
+    except json.JSONDecodeError:
+        enabled_engines = []
+    return {
+        "enabled_engines": enabled_engines,
+        "severity_threshold": policy.severity_threshold,
+        "ai_triage_enabled": policy.ai_triage_enabled,
+        "secret_verification_enabled": policy.secret_verification_enabled,
+    }
+
+
 def execute_scan(scan_id: str) -> str:
     """Core execution logic with distributed lock, events, and safe cleanup."""
     lock_name = f"scanvul:lock:scan:{scan_id}"
@@ -138,11 +180,13 @@ def execute_scan(scan_id: str) -> str:
         source_dir = ingest_source(scan.source_type, scan.source_value, upload_asset)
         
         # Inject log_event callback to track progress across engines
+        scanner_policy = _load_scanner_policy(db, scan.project_id)
         findings, language_summary, framework_summary, risk_level, risk_percent = run_hybrid_scan(
             source_dir, 
             source_type=scan.source_type,
             source_value=scan.source_value,
-            log_event=event_logger.log
+            log_event=event_logger.log,
+            policy=scanner_policy,
         )
 
         event_logger.log("findings_saving", "Processing findings and tracking history...")
@@ -208,6 +252,7 @@ def execute_scan(scan_id: str) -> str:
         scan.status = "completed"
         scan.completed_at = end_time
         scan.duration_ms = duration_ms
+        _scan_notification(db, scan, "completed")
         db.commit()
 
         event_logger.log("completed", f"Scan finished successfully in {duration_ms}ms")
@@ -251,6 +296,7 @@ def _mark_scan_failed(db, scan_id: str, error_message: str) -> None:
             scan.status = "failed"
             scan.completed_at = datetime.utcnow()
             scan.error_message = error_message[:10000] if error_message else None
+            _scan_notification(db, scan, "failed")
             db.commit()
     except Exception as e:
         logger.error("Could not update scan %s to failed: %s", scan_id, e)

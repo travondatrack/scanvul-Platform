@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
+import crypto from "crypto";
 
 import { normalizeEmail } from "@/lib/auth-policy";
-import { createNotification } from "@/lib/notifications";
+import { NOTIFICATION_TYPES } from "@/lib/constants";
 import { prisma } from "@/lib/prisma";
 import { requireActiveUser } from "@/lib/session";
 
@@ -110,20 +111,44 @@ export async function POST(
       return NextResponse.json({ error: "User is already a member" }, { status: 400 });
     }
 
-    const notification = await createNotification({
-      userId: targetUser.id,
-      type: "team_invite",
-      title: "You were invited to a team",
-      message: `${user.name || user.email || "A team owner"} invited you to join ${organization.name} as ${role}.`,
-      payload: {
-        organizationId: organization.id,
-        organizationName: organization.name,
-        role,
-        invitedBy: user.id,
-      },
+    const result = await prisma.$transaction(async (tx) => {
+      await tx.organizationInvite.updateMany({
+        where: { organizationId: id, email, status: "pending" },
+        data: { status: "cancelled" },
+      });
+
+      const token = crypto.randomBytes(32).toString("hex");
+      const invite = await tx.organizationInvite.create({
+        data: {
+          organizationId: id,
+          email,
+          role,
+          tokenHash: crypto.createHash("sha256").update(token).digest("hex"),
+          invitedBy: user.id,
+          expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        },
+      });
+
+      const notification = await tx.notification.create({
+        data: {
+          userId: targetUser.id,
+          type: NOTIFICATION_TYPES.teamInvite,
+          title: "You were invited to a team",
+          message: `${user.name || user.email || "A team owner"} invited you to join ${organization.name} as ${role}.`,
+          payload: JSON.stringify({
+            inviteId: invite.id,
+            organizationId: organization.id,
+            organizationName: organization.name,
+            role,
+            invitedBy: user.id,
+          }),
+        },
+      });
+
+      return { invite, notification };
     });
 
-    return NextResponse.json({ notification }, { status: 201 });
+    return NextResponse.json(result, { status: 201 });
   } catch (error) {
     if (error instanceof Error && error.message === "UNAUTHORIZED") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

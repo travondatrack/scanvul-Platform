@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireActiveUser } from "@/lib/session";
-import { canViewProject } from "@/lib/access";
+import { canViewProject, canViewScan } from "@/lib/access";
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -10,7 +10,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     const resolvedParams = await Promise.resolve(params);
     const finding = await prisma.finding.findUnique({
       where: { id: resolvedParams.id },
-      select: { projectId: true },
+      select: { projectId: true, scanId: true },
     });
 
     if (!finding) {
@@ -21,8 +21,17 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     if (finding.projectId && !(await canViewProject(user.id, finding.projectId))) {
        return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
+    if (!finding.projectId && !(await canViewScan(user.id, finding.scanId))) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+    }
 
-    const events: any[] = [];
+    const events = await prisma.findingEvent.findMany({
+      where: { findingId: resolvedParams.id },
+      include: {
+        user: { select: { id: true, name: true, email: true, image: true } },
+      },
+      orderBy: { createdAt: "asc" },
+    });
     return NextResponse.json(events);
   } catch (error) {
     if (error instanceof Error && error.message === "UNAUTHORIZED") {

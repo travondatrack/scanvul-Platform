@@ -58,6 +58,9 @@ def _safe_extract_zip(archive_path: Path, destination: Path) -> None:
             target = destination / member.filename
             if not str(target.resolve()).startswith(str(destination.resolve())):
                 raise ValueError("Unsafe archive path detected (zip path traversal)")
+            mode = member.external_attr >> 16
+            if (mode & 0o170000) == 0o120000:
+                raise ValueError("Unsafe archive member detected")
             
             extracted_size += member.file_size
             extracted_count += 1
@@ -77,6 +80,8 @@ def _safe_extract_tar(archive_path: Path, destination: Path) -> None:
             target = destination / member.name
             if not str(target.resolve()).startswith(str(destination.resolve())):
                 raise ValueError("Unsafe archive path detected (tar path traversal)")
+            if member.issym() or member.islnk() or member.isdev():
+                raise ValueError("Unsafe archive member detected")
                 
             extracted_size += member.size
             extracted_count += 1

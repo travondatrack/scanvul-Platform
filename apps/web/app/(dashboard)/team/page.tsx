@@ -36,6 +36,7 @@ type Organization = {
   slug: string;
   plan: string;
   members: Member[];
+  invites?: Array<{ id: string; email: string; role: string; expiresAt: string; inviter?: { name: string | null; email: string | null } }>;
   myRole?: string;
 };
 
@@ -203,7 +204,13 @@ export default function TeamPage() {
           const mRes = await fetch(`/api/organizations/${org.id}/members`);
           const mData = await mRes.json();
           const members: Member[] = mData.items ?? [];
-          return { ...org, members };
+          let invites: Organization["invites"] = [];
+          if (org.myRole === "owner" || org.myRole === "admin") {
+            const iRes = await fetch(`/api/organizations/${org.id}/invites`);
+            const iData = await iRes.json();
+            invites = iData.items ?? [];
+          }
+          return { ...org, members, invites };
         }),
       );
 
@@ -235,6 +242,11 @@ export default function TeamPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const cancelInvite = async (orgId: string, inviteId: string) => {
+    await fetch(`/api/organizations/${orgId}/invites?inviteId=${inviteId}`, { method: "DELETE" });
+    await fetchOrgs();
   };
 
   if (loading) {
@@ -331,6 +343,25 @@ export default function TeamPage() {
                   />
                 ))}
               </div>
+
+              {canManageOrg(org) && org.invites && org.invites.length > 0 && (
+                <div className="border-t border-border p-5">
+                  <h3 className="mb-3 text-sm font-bold text-foreground">Pending invites</h3>
+                  <div className="divide-y divide-border rounded-lg border border-border">
+                    {org.invites.map((invite) => (
+                      <div key={invite.id} className="flex items-center justify-between gap-3 p-3">
+                        <div>
+                          <p className="text-sm font-semibold text-foreground">{invite.email}</p>
+                          <p className="text-xs text-muted-foreground">Role: {invite.role}</p>
+                        </div>
+                        <Button type="button" variant="outline" size="sm" onClick={() => cancelInvite(org.id, invite.id)}>
+                          Cancel
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </section>
           ))}
           

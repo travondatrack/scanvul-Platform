@@ -5,6 +5,39 @@ import { requireActiveUser } from "@/lib/session";
 
 const REQUIRED_CONFIRMATION = "DELETE";
 
+export async function PATCH(req: NextRequest) {
+  try {
+    const user = await requireActiveUser();
+    const body = await req.json().catch(() => ({}));
+    const name = typeof body.name === "string" ? body.name.trim().slice(0, 120) : "";
+    const image = typeof body.image === "string" ? body.image.trim().slice(0, 2000) : null;
+
+    if (!name) {
+      return NextResponse.json({ error: "Name is required" }, { status: 400 });
+    }
+    if (image && !/^https?:\/\//i.test(image) && !image.startsWith("data:image/")) {
+      return NextResponse.json({ error: "Avatar must be an image URL or data URI" }, { status: 400 });
+    }
+
+    const updated = await prisma.user.update({
+      where: { id: user.id },
+      data: { name, image },
+      select: { id: true, name: true, email: true, image: true },
+    });
+
+    return NextResponse.json(updated);
+  } catch (error) {
+    if (error instanceof Error && error.message === "UNAUTHORIZED") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    if (error instanceof Error && error.message === "USER_DISABLED") {
+      return NextResponse.json({ error: "Account disabled" }, { status: 403 });
+    }
+    console.error("Account update error:", error);
+    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+  }
+}
+
 export async function DELETE(req: NextRequest) {
   try {
     const user = await requireActiveUser();
