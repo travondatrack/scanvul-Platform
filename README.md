@@ -181,6 +181,7 @@ Important variables:
 - `DATABASE_URL`: MySQL URL used by Prisma. The example uses an Aiven-style MySQL template and must be given a real password.
 - `NEXTAUTH_URL`: local or production web origin.
 - `NEXTAUTH_SECRET`: strong secret for NextAuth sessions.
+- `INTERNAL_API_SECRET`: shared secret between Next.js and FastAPI. Set the same strong value in both deployments so private backend endpoints cannot be called directly.
 - `NEXT_PUBLIC_API_BASE_URL`: FastAPI origin.
 - `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM`: required for real registration OTP email delivery.
 - `EMAIL_DEV_MODE`: development/test switch for mocked email flows.

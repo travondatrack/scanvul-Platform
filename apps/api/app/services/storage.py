@@ -30,8 +30,10 @@ def get_s3_client() -> BaseClient:
 def _local_object_path(object_key: str) -> Path:
     root = Path(settings.local_storage_path).resolve()
     path = (root / object_key).resolve()
-    if not str(path).startswith(str(root)):
-        raise ValueError("Unsafe object key")
+    try:
+        path.relative_to(root)
+    except ValueError as exc:
+        raise ValueError("Unsafe object key") from exc
     return path
 
 

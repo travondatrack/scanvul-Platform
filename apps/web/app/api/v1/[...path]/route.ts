@@ -8,6 +8,42 @@ const BACKEND_BASE =
   process.env.BACKEND_API_BASE_URL ??
   process.env.NEXT_PUBLIC_API_BASE_URL ??
   "http://127.0.0.1:8000";
+const INTERNAL_API_SECRET = process.env.INTERNAL_API_SECRET ?? "";
+
+function normalizeProxyPath(path: string[]) {
+  if (!Array.isArray(path) || path.length === 0) {
+    throw new Error("BAD_PATH");
+  }
+
+  return path.map((segment) => {
+    if (!segment || segment === "." || segment === "..") {
+      throw new Error("BAD_PATH");
+    }
+    if (/%(?:00|2e|2f|5c)/i.test(segment)) {
+      throw new Error("BAD_PATH");
+    }
+
+    let decoded = segment;
+    try {
+      decoded = decodeURIComponent(segment);
+    } catch {
+      throw new Error("BAD_PATH");
+    }
+
+    if (
+      !decoded ||
+      decoded === "." ||
+      decoded === ".." ||
+      decoded.includes("/") ||
+      decoded.includes("\\") ||
+      decoded.includes("\0")
+    ) {
+      throw new Error("BAD_PATH");
+    }
+
+    return decoded;
+  });
+}
 
 // ─── Authorization gate ───────────────────────────────────────────────────────
 
@@ -99,10 +135,14 @@ async function listAccessibleScans(userId: string, limit: number, isAdmin: boole
 
 async function proxy(request: NextRequest, path: string[]) {
   const url = new URL(request.url);
-  const target = `${BACKEND_BASE}/api/v1/${path.join("/")}${url.search}`;
+  const targetPath = path.map((segment) => encodeURIComponent(segment)).join("/");
+  const target = `${BACKEND_BASE}/api/v1/${targetPath}${url.search}`;
 
   const headers = new Headers(request.headers);
   headers.delete("host");
+  if (INTERNAL_API_SECRET) {
+    headers.set("X-ScanVul-Internal-Secret", INTERNAL_API_SECRET);
+  }
 
   const init: RequestInit = {
     method: request.method,
@@ -142,6 +182,9 @@ function handleAuthError(error: unknown) {
   if (error instanceof Error && error.message === "FORBIDDEN") {
     return NextResponse.json({ error: "Access denied" }, { status: 403 });
   }
+  if (error instanceof Error && error.message === "BAD_PATH") {
+    return NextResponse.json({ error: "Invalid API path" }, { status: 400 });
+  }
   console.error("[v1-proxy] error:", error);
   return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
 }
@@ -153,7 +196,10 @@ export async function GET(
   context: { params: Promise<{ path: string[] }> },
 ) {
   try {
-    const { path } = await context.params;
+    const params = await context.params;
+    const path = normalizeProxyPath(params.path);
+    if (path[0] === "public") return proxy(request, path);
+
     const user = await requireActiveUser();
     const decision = await authorizePath(user.id, user.roleGlobal, "GET", path);
 
@@ -165,7 +211,7 @@ export async function GET(
       return listAccessibleScans(
         user.id,
         Number.isFinite(limit) ? limit : 20,
-        user.roleGlobal === "admin",
+        user.roleGlobal === "admin" || user.roleGlobal === "super_admin",
       );
     }
 
@@ -181,7 +227,8 @@ export async function POST(
   context: { params: Promise<{ path: string[] }> },
 ) {
   try {
-    const { path } = await context.params;
+    const params = await context.params;
+    const path = normalizeProxyPath(params.path);
 
     // Public endpoints (guest scan) bypass auth entirely
     if (path[0] === "public" || (path[0] === "scans" && path[1] === "guest")) {
@@ -201,7 +248,8 @@ export async function PUT(
   context: { params: Promise<{ path: string[] }> },
 ) {
   try {
-    const { path } = await context.params;
+    const params = await context.params;
+    const path = normalizeProxyPath(params.path);
     const user = await requireActiveUser();
     await authorizePath(user.id, user.roleGlobal, "PUT", path);
     return proxy(request, path);
@@ -215,7 +263,8 @@ export async function PATCH(
   context: { params: Promise<{ path: string[] }> },
 ) {
   try {
-    const { path } = await context.params;
+    const params = await context.params;
+    const path = normalizeProxyPath(params.path);
     const user = await requireActiveUser();
     await authorizePath(user.id, user.roleGlobal, "PATCH", path);
     return proxy(request, path);
@@ -229,7 +278,8 @@ export async function DELETE(
   context: { params: Promise<{ path: string[] }> },
 ) {
   try {
-    const { path } = await context.params;
+    const params = await context.params;
+    const path = normalizeProxyPath(params.path);
     const user = await requireActiveUser();
     await authorizePath(user.id, user.roleGlobal, "DELETE", path);
     return proxy(request, path);

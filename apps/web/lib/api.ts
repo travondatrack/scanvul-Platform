@@ -82,7 +82,7 @@ export async function uploadArchive(
   formData.append("archive", file);
 
   const response = await fetch(`${API_BASE}/api/v1/uploads/${uploadId}/data`, {
-    method: "POST",
+    method: "PUT",
     body: formData,
   });
   if (!response.ok) {

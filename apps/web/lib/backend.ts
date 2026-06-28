@@ -14,6 +14,7 @@ const BACKEND_BASE =
   "http://127.0.0.1:8000";
 
 const DEFAULT_TIMEOUT_MS = parseInt(process.env.BACKEND_TIMEOUT_MS ?? "10000", 10);
+const INTERNAL_API_SECRET = process.env.INTERNAL_API_SECRET ?? "";
 
 export class BackendError extends Error {
   constructor(
@@ -61,6 +62,9 @@ export async function callBackend<T = unknown>(path: string, opts: CallOptions =
     "Content-Type": "application/json",
     ...headers,
   };
+  if (INTERNAL_API_SECRET) {
+    requestHeaders["X-ScanVul-Internal-Secret"] = INTERNAL_API_SECRET;
+  }
 
   const init: RequestInit = {
     method,

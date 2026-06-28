@@ -23,13 +23,15 @@ Unified contract:
 
 import json
 import threading
+import hmac
+import ipaddress
 from datetime import datetime
 from io import BytesIO
 import logging
 import os
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile
+from fastapi import APIRouter, Depends, File, Header, HTTPException, Query, Request, UploadFile
 from fastapi.responses import StreamingResponse
 from sqlalchemy import desc, func, select
 from sqlalchemy.orm import Session
@@ -67,6 +69,31 @@ QUEUED_STATUS = "queued"
 
 
 # ─── Internal helpers ─────────────────────────────────────────────────────────
+
+def _is_loopback_client(request: Request) -> bool:
+    host = request.client.host if request.client else ""
+    if host == "localhost":
+        return True
+    try:
+        return ipaddress.ip_address(host).is_loopback
+    except ValueError:
+        return False
+
+
+def require_internal_api(
+    request: Request,
+    x_scanvul_internal_secret: str | None = Header(default=None),
+) -> None:
+    expected = settings.internal_api_secret.strip()
+    if not expected:
+        if _is_loopback_client(request):
+            return
+        raise HTTPException(status_code=403, detail="Private API is not exposed")
+
+    provided = (x_scanvul_internal_secret or "").strip()
+    if not provided or not hmac.compare_digest(provided, expected):
+        raise HTTPException(status_code=403, detail="Invalid internal API credentials")
+
 
 def _validate_source(source_type: str, source_value: str) -> None:
     """Validate sourceType/sourceValue before creating a scan record."""
@@ -164,6 +191,7 @@ def _serialize_finding(item: Finding) -> dict:
 @router.get("/scans")
 def list_scans(
     limit: int = Query(default=20, ge=1, le=100),
+    _internal: None = Depends(require_internal_api),
     db: Session = Depends(get_db),
 ):
     scans = db.scalars(select(Scan).order_by(desc(Scan.created_at)).limit(limit)).all()
@@ -187,6 +215,7 @@ async def create_scan(
     request: Request,
     payload: ScanCreateRequest,
     _captcha: None = Depends(validate_captcha),
+    _internal: None = Depends(require_internal_api),
     db: Session = Depends(get_db),
 ):
     """Create + queue a new scan. Used by authenticated dashboard and CI pipeline."""
@@ -290,7 +319,11 @@ async def guest_scan(request: Request, payload: GuestScanRequest, db: Session = 
 # ─── Scan detail & status ─────────────────────────────────────────────────────
 
 @router.get("/scans/{scan_id}/status", response_model=ScanStatusResponse)
-def get_scan_status(scan_id: str, db: Session = Depends(get_db)):
+def get_scan_status(
+    scan_id: str,
+    _internal: None = Depends(require_internal_api),
+    db: Session = Depends(get_db),
+):
     """
     Lightweight status endpoint for UI polling.
     Returns only id/status/riskLevel/riskPercent/updatedAt — no findings payload.
@@ -308,7 +341,11 @@ def get_scan_status(scan_id: str, db: Session = Depends(get_db)):
 
 
 @router.get("/scans/{scan_id}", response_model=ScanDetailResponse)
-def get_scan(scan_id: str, db: Session = Depends(get_db)):
+def get_scan(
+    scan_id: str,
+    _internal: None = Depends(require_internal_api),
+    db: Session = Depends(get_db),
+):
     scan = db.get(Scan, scan_id)
     if scan is None:
         raise HTTPException(status_code=404, detail="Scan not found")
@@ -372,7 +409,11 @@ def _do_trigger(scan_id: str, db: Session) -> TriggerResponse:
 
 
 @router.post("/scans/{scan_id}/trigger", response_model=TriggerResponse)
-def trigger_scan(scan_id: str, db: Session = Depends(get_db)):
+def trigger_scan(
+    scan_id: str,
+    _internal: None = Depends(require_internal_api),
+    db: Session = Depends(get_db),
+):
     """
     Trigger an existing scan record (plural URL — canonical style).
     Called by Next.js after creating a Scan record via Prisma.
@@ -381,7 +422,11 @@ def trigger_scan(scan_id: str, db: Session = Depends(get_db)):
 
 
 @router.post("/scan/{scan_id}/trigger", response_model=TriggerResponse)
-def trigger_scan_legacy(scan_id: str, db: Session = Depends(get_db)):
+def trigger_scan_legacy(
+    scan_id: str,
+    _internal: None = Depends(require_internal_api),
+    db: Session = Depends(get_db),
+):
     """
     Legacy singular-URL alias kept for backward compatibility.
     Delegates to the same logic as the canonical plural endpoint.
@@ -398,6 +443,7 @@ def list_findings(
     status: str | None = Query(default=None),
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=50, ge=1, le=200),
+    _internal: None = Depends(require_internal_api),
     db: Session = Depends(get_db),
 ):
     scan = db.get(Scan, scan_id)
@@ -451,7 +497,11 @@ def list_findings(
 # ─── Heatmap & Compare ────────────────────────────────────────────────────────
 
 @router.get("/scans/{scan_id}/heatmap")
-def get_heatmap(scan_id: str, db: Session = Depends(get_db)):
+def get_heatmap(
+    scan_id: str,
+    _internal: None = Depends(require_internal_api),
+    db: Session = Depends(get_db),
+):
     scan = db.get(Scan, scan_id)
     if scan is None:
         raise HTTPException(status_code=404, detail="Scan not found")
@@ -471,7 +521,12 @@ def get_heatmap(scan_id: str, db: Session = Depends(get_db)):
 
 
 @router.get("/scans/{scan_id}/compare/{base_scan_id}")
-def compare_scans(scan_id: str, base_scan_id: str, db: Session = Depends(get_db)):
+def compare_scans(
+    scan_id: str,
+    base_scan_id: str,
+    _internal: None = Depends(require_internal_api),
+    db: Session = Depends(get_db),
+):
     current = db.get(Scan, scan_id)
     base = db.get(Scan, base_scan_id)
     if current is None or base is None:
@@ -498,6 +553,7 @@ def compare_scans(scan_id: str, base_scan_id: str, db: Session = Depends(get_db)
 def export_scan(
     scan_id: str,
     format: str = Query(default="json", regex="^(json|sarif|pdf)$"),
+    _internal: None = Depends(require_internal_api),
     db: Session = Depends(get_db),
 ):
     scan = db.get(Scan, scan_id)
@@ -531,7 +587,11 @@ def export_scan(
 # ─── Public badge ─────────────────────────────────────────────────────────────
 
 @router.post("/scans/{scan_id}/badge/publish")
-def publish_badge(scan_id: str, db: Session = Depends(get_db)):
+def publish_badge(
+    scan_id: str,
+    _internal: None = Depends(require_internal_api),
+    db: Session = Depends(get_db),
+):
     scan = db.get(Scan, scan_id)
     if scan is None:
         raise HTTPException(status_code=404, detail="Scan not found")
@@ -583,7 +643,12 @@ def public_scan(token: str, db: Session = Depends(get_db)):
 # ─── CI / Legacy aliases ──────────────────────────────────────────────────────
 
 @router.post("/scan", response_model=ScanSummaryResponse)
-async def ci_scan(request: Request, payload: ScanCreateRequest, db: Session = Depends(get_db)):
+async def ci_scan(
+    request: Request,
+    payload: ScanCreateRequest,
+    _internal: None = Depends(require_internal_api),
+    db: Session = Depends(get_db),
+):
     """CI pipeline alias — identical to POST /scans."""
     _ = request
     return _queue_scan(payload, db)
@@ -597,6 +662,7 @@ async def init_upload(
     request: Request,
     payload: UploadInitRequest,
     _captcha: None = Depends(validate_captcha),
+    _internal: None = Depends(require_internal_api),
     db: Session = Depends(get_db),
 ):
     _ = request
@@ -624,6 +690,7 @@ async def upload_archive_data(
     request: Request,
     upload_id: str,
     archive: UploadFile = File(...),
+    _internal: None = Depends(require_internal_api),
     db: Session = Depends(get_db),
 ):
     _ = request
@@ -644,7 +711,11 @@ async def upload_archive_data(
 
 
 @router.post("/uploads/complete")
-def complete_upload(payload: UploadCompleteRequest, db: Session = Depends(get_db)):
+def complete_upload(
+    payload: UploadCompleteRequest,
+    _internal: None = Depends(require_internal_api),
+    db: Session = Depends(get_db),
+):
     upload = db.get(UploadedAsset, payload.uploadId)
     if upload is None:
         raise HTTPException(status_code=404, detail="Upload not found")

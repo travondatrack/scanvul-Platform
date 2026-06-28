@@ -51,6 +51,9 @@ class Settings(BaseSettings):
     rate_limit_per_minute: int = 60
     presigned_upload_expiry_seconds: int = 900
     captcha_secret_key: str = ""
+    # Shared secret required by private FastAPI endpoints when the API is
+    # reachable outside the Next.js server/proxy.
+    internal_api_secret: str = ""
     
     # OAuth and JWT
     google_client_id: str = ""

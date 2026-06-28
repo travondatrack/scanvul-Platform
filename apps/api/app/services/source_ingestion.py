@@ -19,6 +19,16 @@ MAX_EXTRACT_SIZE = 500 * 1024 * 1024  # 500 MB
 MAX_FILES = 20000
 
 
+def _ensure_within_directory(path: Path, root: Path, message: str) -> Path:
+    resolved_root = root.resolve()
+    resolved_path = path.resolve()
+    try:
+        resolved_path.relative_to(resolved_root)
+    except ValueError as exc:
+        raise ValueError(message) from exc
+    return resolved_path
+
+
 # ─── Whitelist helper ────────────────────────────────────────────────────────
 
 def _allowed_prefixes() -> list[str]:
@@ -56,8 +66,7 @@ def _safe_extract_zip(archive_path: Path, destination: Path) -> None:
     with zipfile.ZipFile(archive_path) as zf:
         for member in zf.infolist():
             target = destination / member.filename
-            if not str(target.resolve()).startswith(str(destination.resolve())):
-                raise ValueError("Unsafe archive path detected (zip path traversal)")
+            _ensure_within_directory(target, destination, "Unsafe archive path detected (zip path traversal)")
             mode = member.external_attr >> 16
             if (mode & 0o170000) == 0o120000:
                 raise ValueError("Unsafe archive member detected")
@@ -78,8 +87,7 @@ def _safe_extract_tar(archive_path: Path, destination: Path) -> None:
     with tarfile.open(archive_path) as tf:
         for member in tf.getmembers():
             target = destination / member.name
-            if not str(target.resolve()).startswith(str(destination.resolve())):
-                raise ValueError("Unsafe archive path detected (tar path traversal)")
+            _ensure_within_directory(target, destination, "Unsafe archive path detected (tar path traversal)")
             if member.issym() or member.islnk() or member.isdev():
                 raise ValueError("Unsafe archive member detected")
                 
@@ -125,8 +133,7 @@ def _materialize_pasted_files(serialized: str, destination: Path) -> None:
         if not path:
             continue
         target = destination / path
-        if not str(target.resolve()).startswith(str(destination.resolve())):
-            raise ValueError("Unsafe file path in pasted input (path traversal)")
+        _ensure_within_directory(target, destination, "Unsafe file path in pasted input (path traversal)")
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(content, encoding="utf-8")
 
