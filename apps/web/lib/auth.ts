@@ -1,6 +1,5 @@
 import { NextAuthOptions } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
-import { PrismaAdapter } from "@auth/prisma-adapter";
 import { prisma } from "@/lib/prisma";
 
 import CredentialsProvider from "next-auth/providers/credentials";
@@ -13,7 +12,7 @@ function hasOAuthValue(value: string | undefined) {
     return false;
   }
 
-  const normalized = value.trim().replace(/^['"]|['"]$/g, "").toLowerCase();
+  const normalized = value.trim().replace(/^['\"]|['\"]$/g, "").toLowerCase();
   return Boolean(normalized)
     && !normalized.startsWith("placeholder")
     && !normalized.startsWith("change_me");
@@ -90,18 +89,13 @@ if (isGoogleAuthEnabled) {
     GoogleProvider({
       clientId: getGoogleClientId()!,
       clientSecret: getGoogleClientSecret()!,
-      allowDangerousEmailAccountLinking: true,
       profile(profile) {
-        if (!profile.email || profile.email_verified !== true) {
-          throw new Error("Google account email must be verified");
-        }
-
         return {
           id: profile.sub,
           name: profile.name,
-          email: normalizeEmail(profile.email),
+          email: profile.email ? normalizeEmail(profile.email) : profile.email,
           image: profile.picture,
-          emailVerified: new Date(),
+          emailVerified: profile.email_verified ? new Date() : null,
           roleGlobal: "user",
           status: "active",
         };
@@ -111,7 +105,9 @@ if (isGoogleAuthEnabled) {
 }
 
 export const authOptions: NextAuthOptions = {
-  adapter: PrismaAdapter(prisma) as NextAuthOptions["adapter"],
+  // No adapter — we use JWT strategy and handle all DB operations manually.
+  // Mixing PrismaAdapter with strategy:"jwt" causes OAuthAccountNotLinked errors
+  // because NextAuth's adapter checks run before the signIn callback.
   providers,
   session: {
     strategy: "jwt",
@@ -124,45 +120,64 @@ export const authOptions: NextAuthOptions = {
 
       const email = normalizeEmail(user.email);
 
+      // ── Google OAuth ──────────────────────────────────────────────────────
       if (account?.provider === "google") {
         if (!profile || !("email_verified" in profile) || (profile as any).email_verified !== true) {
           return false;
         }
 
-        const dbUser = await prisma.user.findUnique({
+        // Find or create user in our DB
+        let dbUser = await prisma.user.findUnique({
           where: { email },
           select: { id: true, status: true, emailVerified: true },
         });
 
         if (!dbUser) {
-          // New user — allow NextAuth to create account
-          return true;
+          // Brand-new user signing up via Google
+          dbUser = await prisma.user.create({
+            data: {
+              email,
+              name: user.name,
+              image: user.image,
+              emailVerified: new Date(),
+              roleGlobal: "user",
+              status: "active",
+            },
+            select: { id: true, status: true, emailVerified: true },
+          });
         }
 
         if (dbUser.status !== "active") {
           return false;
         }
 
-        // Auto-link Google account to existing user if not linked yet
-        const existingAccount = await prisma.account.findFirst({
-          where: { userId: dbUser.id, provider: "google" },
-        });
-
-        if (!existingAccount && account.providerAccountId) {
-          await prisma.account.create({
-            data: {
-              userId: dbUser.id,
-              type: account.type,
-              provider: account.provider,
-              providerAccountId: account.providerAccountId,
-              access_token: account.access_token,
-              refresh_token: account.refresh_token,
-              expires_at: account.expires_at,
-              token_type: account.token_type,
-              scope: account.scope,
-              id_token: account.id_token,
+        // Link Google account to this user if not already linked
+        if (account.providerAccountId) {
+          const existingAccount = await prisma.account.findUnique({
+            where: {
+              provider_providerAccountId: {
+                provider: account.provider,
+                providerAccountId: account.providerAccountId,
+              },
             },
           });
+
+          if (!existingAccount) {
+            await prisma.account.create({
+              data: {
+                userId: dbUser.id,
+                type: account.type,
+                provider: account.provider,
+                providerAccountId: account.providerAccountId,
+                access_token: account.access_token,
+                refresh_token: account.refresh_token,
+                expires_at: account.expires_at,
+                token_type: account.token_type,
+                scope: account.scope,
+                id_token: account.id_token,
+              },
+            });
+          }
         }
 
         if (!dbUser.emailVerified) {
@@ -172,12 +187,13 @@ export const authOptions: NextAuthOptions = {
           });
         }
 
-        // Override user.id so JWT picks up the correct existing user
+        // Point user.id to our DB user so JWT token.sub is correct
         user.id = dbUser.id;
 
         return true;
       }
 
+      // ── Credentials ───────────────────────────────────────────────────────
       const dbUser = await prisma.user.findUnique({
         where: { email },
         select: { status: true },
@@ -185,12 +201,15 @@ export const authOptions: NextAuthOptions = {
 
       return dbUser?.status === "active";
     },
+
     async jwt({ token, user }) {
       if (user) {
+        token.sub = user.id;
         token.roleGlobal = (user as any).roleGlobal ?? "user";
         token.status = (user as any).status ?? "active";
       }
 
+      // Always refresh from DB so role/status changes take effect immediately
       if (token.sub) {
         const dbUser = await prisma.user.findUnique({
           where: { id: token.sub },
@@ -208,6 +227,7 @@ export const authOptions: NextAuthOptions = {
 
       return token;
     },
+
     async session({ session, token }) {
       if (session.user && token.sub) {
         (session.user as any).id = token.sub;
@@ -215,23 +235,6 @@ export const authOptions: NextAuthOptions = {
         (session.user as any).status = token.status ?? "active";
       }
       return session;
-    },
-  },
-  events: {
-    async createUser({ user }) {
-      if (!user.email) {
-        return;
-      }
-
-      await prisma.user.update({
-        where: { id: user.id },
-        data: {
-          email: normalizeEmail(user.email),
-          emailVerified: (user as any).emailVerified ?? new Date(),
-          roleGlobal: "user",
-          status: "active",
-        },
-      });
     },
   },
 };
