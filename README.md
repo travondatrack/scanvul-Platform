@@ -10,9 +10,14 @@ ScanVul AI is a full-stack vulnerability scanning platform for repository, archi
 - Project management for repositories and source inputs.
 - Manual, guest, dashboard, and CI scan entry points.
 - Hybrid scanner pipeline for SAST, dependency, configuration, secret, and optional AI triage findings.
-- Evidence-rich findings with severity, confidence, source/sink context, vulnerable function, explanation, remediation, secure examples, and status actions.
+- Evidence-rich finding detail with severity, confidence, CWE/OWASP mapping, source/sink context, vulnerable function, code snippets, evidence, attack scenario, impact, remediation, secure examples, pentest guidance, source links, comments, and triage actions.
+- One-click AI review for individual findings when an OpenAI-compatible `LLM_API_KEY` is configured. Review input is masked/truncated and results are stored in the finding timeline.
 - Semantic deduplication across repeated findings.
-- Scan timeline, progress, heatmap, comparison, reports, and JSON/SARIF/PDF exports.
+- Scan runtime timeline, project security overview, severity breakdowns, scan comparison, false-positive learning hints, reports, and JSON/SARIF/PDF exports.
+- Scanner policy presets for fast, balanced, strict, and AI-assisted scans.
+- Notification center filters, mark-all-read, and entity links for scan/finding/team events.
+- CI token management with GitHub Actions, curl, and npm script examples.
+- Admin health dashboard for database, FastAPI, Redis/Celery broker, storage, scanner engines, and AI config availability without exposing secrets.
 - Public scan badge publishing for completed scans.
 - Local storage and thread-worker defaults for simple local development, with Redis/Celery and MinIO support for fuller deployments.
 
@@ -47,6 +52,10 @@ dev.ps1
 start-all.ps1
 .env.example
 ```
+
+## Shared Schema Changes
+
+This repo has two ORM layers against the same MySQL database: Prisma in `apps/web` and SQLAlchemy in `apps/api`. When changing shared tables such as `scans`, `findings`, `scan_events`, `uploaded_assets`, `public_badges`, `notifications`, or scanner policy/audit tables, update both ORM models in the same change. Add a Prisma migration under `apps/web/prisma/migrations`, then mirror any columns read or written by FastAPI in `apps/api/app/models`. Do not deploy a worker/API build that writes columns Prisma does not know about, or a web build that assumes columns missing from SQLAlchemy-created rows.
 
 ## Requirements
 
@@ -171,6 +180,36 @@ The backend scanner pipeline ingests the requested source and runs multiple stag
 - AI triage: optional OpenAI-compatible enrichment and confidence adjustment.
 
 Findings are normalized with fields such as `ruleId`, `scanCategory`, `source`, `sink`, `functionName`, `whyVulnerable`, `confidence`, `cvss4Score`, `dedupeHash`, and remediation content. The UI presents the aggregate score as `Risk Score`.
+
+## Scan Flow
+
+1. A dashboard, CI, guest, or upload flow creates a `Scan` row and a `queued` `ScanEvent`.
+2. FastAPI/worker resolves the source from a repository URL, uploaded archive, or pasted source.
+3. The scanner loads the project `ScannerPolicy` and logs runtime events for source resolution, engine start/completion/skips, AI triage completion/skips, report generation, and final status.
+4. Findings are normalized, deduplicated, risk-scored, saved, and surfaced in the scan report UI.
+5. Triage actions, comments, assignment, and AI review are stored in `FindingEvent` plus `AuditEvent`, then notifications are created where appropriate.
+
+## CI Usage
+
+Project API tokens are managed from the project token UI. Raw tokens are shown only at creation time; later the UI lists token metadata only.
+
+Minimal CI trigger:
+
+```powershell
+curl -X POST https://scanvul.ai/api/ci/scan `
+  -H "Authorization: Bearer $env:SCANVUL_TOKEN" `
+  -H "Content-Type: application/json" `
+  -d '{"sourceType":"repo_url"}'
+```
+
+After the scan finishes, CI can fetch SARIF through the CI report endpoint for upload to GitHub code scanning.
+
+## Known Limitations
+
+- Organization-level scanner policy storage exists, but the worker currently applies project-level policy only.
+- Individual finding AI review requires `LLM_API_KEY`; without it the button is disabled.
+- CI scan trigger currently accepts JSON source metadata. Dashboard archive upload is the supported archive-to-scan path.
+- Web lint config is not installed; typecheck and Jest are the current frontend verification gates.
 
 ## Useful Commands
 
