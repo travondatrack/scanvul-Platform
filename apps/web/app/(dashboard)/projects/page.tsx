@@ -9,6 +9,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
 import { formatVietnamDate } from "@/lib/date-format";
+import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
 
 const PAGE_SIZE = 18;
 
@@ -125,27 +126,18 @@ export default async function ProjectsPage({
           </div>
 
           {totalPages > 1 && (
-            <div className="flex items-center justify-between border-t border-border pt-5">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-border pt-5 mt-6">
               <p className="text-sm text-muted-foreground">
                 Showing {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, total)} of {total} projects
               </p>
-              <div className="flex items-center gap-2">
-                {page > 1 ? (
-                  <Link
-                    href={`/projects?page=${page - 1}`}
-                    className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-sm font-medium hover:bg-muted transition-colors"
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                    Previous
-                  </Link>
-                ) : (
-                  <span className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-sm font-medium opacity-40 cursor-not-allowed">
-                    <ChevronLeft className="h-4 w-4" />
-                    Previous
-                  </span>
-                )}
-
-                <div className="flex items-center gap-1">
+              <Pagination className="w-auto mx-0">
+                <PaginationContent>
+                  <PaginationItem>
+                    <PaginationPrevious
+                      href={page > 1 ? `/projects?page=${page - 1}` : "#"}
+                      className={page <= 1 ? "pointer-events-none opacity-40" : ""}
+                    />
+                  </PaginationItem>
                   {Array.from({ length: totalPages }, (_, i) => i + 1)
                     .filter(p => p === 1 || p === totalPages || Math.abs(p - page) <= 1)
                     .reduce<(number | "...")[]>((acc, p, idx, arr) => {
@@ -155,38 +147,25 @@ export default async function ProjectsPage({
                     }, [])
                     .map((p, idx) =>
                       p === "..." ? (
-                        <span key={`ellipsis-${idx}`} className="px-2 text-sm text-muted-foreground">…</span>
+                        <PaginationItem key={`ellipsis-${idx}`}>
+                          <PaginationEllipsis />
+                        </PaginationItem>
                       ) : (
-                        <Link
-                          key={p}
-                          href={`/projects?page=${p}`}
-                          className={`inline-flex h-8 w-8 items-center justify-center rounded-md text-sm font-medium transition-colors ${
-                            p === page
-                              ? "bg-brand text-white"
-                              : "border border-border hover:bg-muted"
-                          }`}
-                        >
-                          {p}
-                        </Link>
+                        <PaginationItem key={p}>
+                          <PaginationLink href={`/projects?page=${p}`} isActive={p === page}>
+                            {p}
+                          </PaginationLink>
+                        </PaginationItem>
                       )
                     )}
-                </div>
-
-                {page < totalPages ? (
-                  <Link
-                    href={`/projects?page=${page + 1}`}
-                    className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-sm font-medium hover:bg-muted transition-colors"
-                  >
-                    Next
-                    <ChevronRight className="h-4 w-4" />
-                  </Link>
-                ) : (
-                  <span className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-sm font-medium opacity-40 cursor-not-allowed">
-                    Next
-                    <ChevronRight className="h-4 w-4" />
-                  </span>
-                )}
-              </div>
+                  <PaginationItem>
+                    <PaginationNext
+                      href={page < totalPages ? `/projects?page=${page + 1}` : "#"}
+                      className={page >= totalPages ? "pointer-events-none opacity-40" : ""}
+                    />
+                  </PaginationItem>
+                </PaginationContent>
+              </Pagination>
             </div>
           )}
         </>

@@ -7,6 +7,7 @@ import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
 import { buttonVariants } from "@/components/ui/button";
+import { RiskRadarChart } from "@/components/charts/risk-radar-chart";
 
 export default async function DashboardOverviewPage() {
   const user = await requireActiveUser();
@@ -37,12 +38,6 @@ export default async function DashboardOverviewPage() {
 
   const totalActive = activeFindings.length;
   
-  // Calculate percentages for the progress bars
-  const criticalPct = totalActive > 0 ? (criticalCount / totalActive) * 100 : 0;
-  const highPct = totalActive > 0 ? (highCount / totalActive) * 100 : 0;
-  const mediumPct = totalActive > 0 ? (mediumCount / totalActive) * 100 : 0;
-  const lowPct = totalActive > 0 ? (lowCount / totalActive) * 100 : 0;
-
   return (
     <div className="space-y-6">
       <PageHeader
@@ -93,55 +88,12 @@ export default async function DashboardOverviewPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
-        <Card className="h-full flex flex-col">
-          <CardHeader>
-            <CardTitle>Active Vulnerabilities Breakdown</CardTitle>
-          </CardHeader>
-          <CardContent>
-          
-          <div className="space-y-6">
-            <div>
-              <div className="flex justify-between text-sm mb-2">
-                <span className="text-red-400 font-medium">Critical</span>
-                <span className="text-slate-400">{criticalCount}</span>
-              </div>
-              <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
-                <div className="h-full bg-destructive rounded-full" style={{ width: `${criticalPct}%` }}></div>
-              </div>
-            </div>
-
-            <div>
-              <div className="flex justify-between text-sm mb-2">
-                <span className="text-orange-400 font-medium">High</span>
-                <span className="text-slate-400">{highCount}</span>
-              </div>
-              <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
-                <div className="h-full bg-orange-500 rounded-full" style={{ width: `${highPct}%` }}></div>
-              </div>
-            </div>
-
-            <div>
-              <div className="flex justify-between text-sm mb-2">
-                <span className="text-amber-400 font-medium">Medium</span>
-                <span className="text-slate-400">{mediumCount}</span>
-              </div>
-              <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
-                <div className="h-full bg-warning rounded-full" style={{ width: `${mediumPct}%` }}></div>
-              </div>
-            </div>
-
-            <div>
-              <div className="flex justify-between text-sm mb-2">
-                <span className="text-emerald-400 font-medium">Low</span>
-                <span className="text-slate-400">{lowCount}</span>
-              </div>
-              <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
-                <div className="h-full bg-success rounded-full" style={{ width: `${lowPct}%` }}></div>
-              </div>
-            </div>
-          </div>
-          </CardContent>
-        </Card>
+        <RiskRadarChart
+          critical={criticalCount}
+          high={highCount}
+          medium={mediumCount}
+          low={lowCount}
+        />
 
         <Card className="h-full flex flex-col items-center justify-center p-6 text-center">
           <div className="w-20 h-20 bg-success/10 border border-success/20 rounded-full flex items-center justify-center mb-4">

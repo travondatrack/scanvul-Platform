@@ -4,10 +4,12 @@ import { useSession, signOut } from "next-auth/react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import { Bell, LayoutDashboard, FolderKanban, FileText, Settings, ShieldAlert, LogOut, Loader2, Users, Activity, ShieldCheck, Database, Building2 } from "lucide-react";
+import { Bell, LayoutDashboard, FolderKanban, FileText, Settings, ShieldAlert, LogOut, Users, Activity, ShieldCheck, Database, Building2 } from "lucide-react";
 import { ThemeToggle } from "../../components/ThemeToggle";
 import { OrgSwitcher } from "../../components/OrgSwitcher";
 import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Spinner } from "@/components/ui/spinner";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { data: session } = useSession();
@@ -102,15 +104,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
         <div className="p-4 mt-auto border-t border-border">
           <div className="flex items-center space-x-3 mb-4 px-2">
-            <div className="w-10 h-10 rounded-full bg-muted border border-border overflow-hidden flex-shrink-0">
-              {session?.user?.image ? (
-                <img src={session.user.image} alt="Avatar" className="w-full h-full object-cover" />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center text-muted-foreground font-bold">
-                  {session?.user?.name?.charAt(0) || "U"}
-                </div>
-              )}
-            </div>
+            <Avatar className="h-10 w-10 border border-border">
+              <AvatarImage src={session?.user?.image || undefined} alt={session?.user?.name || "User"} />
+              <AvatarFallback>{session?.user?.name?.charAt(0) || "U"}</AvatarFallback>
+            </Avatar>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-foreground truncate">{session?.user?.name}</p>
               <p className="text-xs text-muted-foreground truncate">{session?.user?.email}</p>
@@ -126,9 +123,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             className="w-full hover:text-destructive"
           >
             {isSigningOut ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
+              <Spinner className="mr-2" />
             ) : (
-              <LogOut className="w-4 h-4" />
+              <LogOut className="w-4 h-4 mr-2" />
             )}
             <span>{isSigningOut ? "Signing out..." : "Sign out"}</span>
           </Button>

@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { SupportAccessBanner } from "@/components/ui/support-access-banner";
+import { Pagination, PaginationContent, PaginationItem, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
+import { Spinner } from "@/components/ui/spinner";
 
 type OrgItem = {
   id: string;
@@ -121,22 +123,22 @@ export function AdminOrganizationsClient() {
             <p className="text-sm text-slate-400">
               Page {page} of {totalPages}
             </p>
-            <div className="flex gap-2">
-              <button
-                onClick={() => setPage(p => Math.max(1, p - 1))}
-                disabled={page === 1}
-                className="rounded-md border border-border px-3 py-1.5 text-sm font-medium disabled:opacity-40 hover:bg-muted"
-              >
-                Previous
-              </button>
-              <button
-                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                disabled={page === totalPages}
-                className="rounded-md border border-border px-3 py-1.5 text-sm font-medium disabled:opacity-40 hover:bg-muted"
-              >
-                Next
-              </button>
-            </div>
+            <Pagination className="w-auto mx-0">
+              <PaginationContent>
+                <PaginationItem>
+                  <PaginationPrevious
+                    onClick={() => setPage(p => Math.max(1, p - 1))}
+                    className={page === 1 ? "pointer-events-none opacity-40 cursor-not-allowed" : "cursor-pointer"}
+                  />
+                </PaginationItem>
+                <PaginationItem>
+                  <PaginationNext
+                    onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                    className={page === totalPages ? "pointer-events-none opacity-40 cursor-not-allowed" : "cursor-pointer"}
+                  />
+                </PaginationItem>
+              </PaginationContent>
+            </Pagination>
           </div>
         )}
       </div>
