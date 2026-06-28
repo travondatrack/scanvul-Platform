@@ -1,25 +1,49 @@
 # ScanVul AI
 
-ScanVul AI is a full-stack vulnerability scanning platform for repository, archive, and pasted-source scans. It combines a Next.js dashboard with a FastAPI scanner service, stores scan history and findings, and presents results with evidence, remediation guidance, status tracking, exports, and public badges.
+[![Next.js](https://img.shields.io/badge/Next.js-15-black)](https://nextjs.org/)
+[![React](https://img.shields.io/badge/React-19-61dafb)](https://react.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5-blue)](https://www.typescriptlang.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-scanner_service-009688)](https://fastapi.tiangolo.com/)
+[![Prisma](https://img.shields.io/badge/Prisma-MySQL-2d3748)](https://www.prisma.io/)
+[![License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
+
+ScanVul AI is a full-stack vulnerability scanning platform for repositories, uploaded archives, and pasted source code. It helps teams run security scans, review evidence-rich findings, triage issues, export reports, and integrate scan results into CI workflows.
+
+Live demo: [https://scanvul-platform.vercel.app/](https://scanvul-platform.vercel.app/)
+
+## Table of Contents
+
+- [Project Description](#project-description)
+- [Features](#features)
+- [Tech Stack](#tech-stack)
+- [Project Structure](#project-structure)
+- [Installation and Local Development](#installation-and-local-development)
+- [Environment Variables](#environment-variables)
+- [How to Use](#how-to-use)
+- [Roadmap](#roadmap)
+- [Contributing](#contributing)
+- [Credits](#credits)
+- [License](#license)
+
+## Project Description
+
+ScanVul AI combines a Next.js dashboard with a FastAPI scanner service to make application security scanning easier to run, review, and integrate into development workflows. It supports authenticated projects, guest scans, dashboard and CI scan triggers, finding triage, exports, timelines, and public scan badges.
+
+The project uses Next.js, React, TypeScript, Tailwind CSS, NextAuth, Prisma, FastAPI, SQLAlchemy, and a hybrid scanner pipeline. The web app handles product workflows and access control, while the API service coordinates source ingestion, scanner execution, worker tasks, and report generation.
+
+Key challenges include keeping the web and API data models aligned, normalizing findings from multiple scanner engines, deduplicating repeated issues, and showing enough evidence for developers to act on each result.
+
+Future improvements include stronger organization-level scanner policy enforcement, more CI templates, broader scanner coverage, deployment automation, and richer recurring-vulnerability analytics.
 
 ## Features
 
-- Email/password authentication with hashed OTP email verification.
-- Optional Google OAuth login when Google credentials are configured.
-- Protected dashboard routes, API route guards, project access checks, and first-pass organization/team RBAC.
-- Project management for repositories and source inputs.
-- Manual, guest, dashboard, and CI scan entry points.
-- Hybrid scanner pipeline for SAST, dependency, configuration, secret, and optional AI triage findings.
-- Evidence-rich finding detail with severity, confidence, CWE/OWASP mapping, source/sink context, vulnerable function, code snippets, evidence, attack scenario, impact, remediation, secure examples, pentest guidance, source links, comments, and triage actions.
-- One-click AI review for individual findings when an OpenAI-compatible `LLM_API_KEY` is configured. Review input is masked/truncated and results are stored in the finding timeline.
-- Semantic deduplication across repeated findings.
-- Scan runtime timeline, project security overview, severity breakdowns, scan comparison, false-positive learning hints, reports, and JSON/SARIF/PDF exports.
-- Scanner policy presets for fast, balanced, strict, and AI-assisted scans.
-- Notification center filters, mark-all-read, and entity links for scan/finding/team events.
-- CI token management with GitHub Actions, curl, and npm script examples.
-- Admin health dashboard for database, FastAPI, Redis/Celery broker, storage, scanner engines, and AI config availability without exposing secrets.
-- Public scan badge publishing for completed scans.
-- Local storage and thread-worker defaults for simple local development, with Redis/Celery and MinIO support for fuller deployments.
+- Secure authentication with email OTP verification, optional Google OAuth, protected routes, and organization/team RBAC.
+- Project-based scanning for repositories, uploaded archives, pasted source, guest scans, dashboard scans, and CI-triggered scans.
+- Hybrid scanner pipeline covering SAST, dependencies, secrets, configuration issues, OWASP patterns, and optional AI triage.
+- Evidence-rich findings with severity, confidence, CWE/OWASP mapping, code context, remediation guidance, comments, assignment, and status tracking.
+- Risk Score, deduplication, scan timelines, severity charts, heatmaps, scan comparison, and JSON/SARIF/PDF exports.
+- CI token management, public scan badges, notifications, and admin health checks for core services and scanner engines.
+- Local-first development defaults with optional Redis/Celery workers and MinIO-compatible storage for fuller deployments.
 
 ## Tech Stack
 
@@ -33,10 +57,17 @@ Frontend:
 Backend:
 
 - FastAPI, Pydantic, SQLAlchemy
-- Semgrep, Bandit, ESLint security checks, Trivy, secret scanner, OWASP pattern adapter
+- Semgrep, Bandit, ESLint security checks, Trivy, local secret scanner, custom OWASP pattern adapter
 - Celery and Redis support
 - Local filesystem or MinIO-compatible object storage
 - Optional OpenAI-compatible LLM triage
+
+Database and infrastructure:
+
+- MySQL-compatible database for Prisma-backed web data
+- Redis for Celery mode and rate-limit style integrations
+- Docker Compose for local multi-service startup
+- Vercel/Render-oriented deployment files
 
 ## Project Structure
 
@@ -45,55 +76,43 @@ apps/
   web/      Next.js app, dashboard UI, auth, RBAC helpers, Prisma schema
   api/      FastAPI app, scanner engines, worker tasks, exporters
 
+.env.example
+dev.ps1
+start-all.ps1
 docker-compose.yml
 docker-compose.prod.yml
 render.yaml
-dev.ps1
-start-all.ps1
-.env.example
+vercel.json
 ```
 
-## Shared Schema Changes
+Important note for contributors: this repo has two ORM layers against the same MySQL database. Prisma lives in `apps/web`, and SQLAlchemy lives in `apps/api`. When changing shared tables such as scans, findings, scan events, uploaded assets, public badges, notifications, scanner policy, or audit tables, update both model layers in the same change.
 
-This repo has two ORM layers against the same MySQL database: Prisma in `apps/web` and SQLAlchemy in `apps/api`. When changing shared tables such as `scans`, `findings`, `scan_events`, `uploaded_assets`, `public_badges`, `notifications`, or scanner policy/audit tables, update both ORM models in the same change. Add a Prisma migration under `apps/web/prisma/migrations`, then mirror any columns read or written by FastAPI in `apps/api/app/models`. Do not deploy a worker/API build that writes columns Prisma does not know about, or a web build that assumes columns missing from SQLAlchemy-created rows.
+## Installation and Local Development
 
-## Requirements
+### Requirements
 
-- Node.js 24.x for `apps/web`
-- Python 3.11+ for `apps/api`
-- MySQL-compatible database for the Prisma-backed web app
-- Optional: Redis, MinIO, Semgrep, Bandit, Trivy, and ESLint security tooling depending on the scan path you want to exercise
+- Node.js 24.x
+- Python 3.11+
+- MySQL-compatible database
+- Optional: Redis, MinIO, Semgrep, Bandit, Trivy, and ESLint security tooling
 
-## Environment
+### 1. Clone and install dependencies
 
-Create a local environment file:
+```powershell
+git clone <your-repository-url>
+cd scanvul-Platform
+npm install
+```
+
+### 2. Configure environment values
 
 ```powershell
 Copy-Item .env.example .env
 ```
 
-Edit `.env` before running the app. Important values:
+Edit `.env` and replace all `CHANGE_ME` values before running the app.
 
-- `DATABASE_URL`: MySQL URL used by Prisma. The example is an Aiven MySQL template and must be given a real password.
-- `NEXTAUTH_URL`: local web origin, usually `http://localhost:3000`.
-- `NEXTAUTH_SECRET`: strong random secret for NextAuth sessions.
-- `NEXT_PUBLIC_API_BASE_URL`: FastAPI origin, usually `http://localhost:8000`.
-- `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM`: required for real registration OTP email delivery.
-- `EMAIL_DEV_MODE`: set only for mocked/test flows; OTP values are not logged.
-- `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`: optional. Google login is hidden/disabled when missing.
-- `SCAN_WORKER_MODE`: `thread` is the simplest local default; `celery` uses Redis/Celery workers.
-- `STORAGE_BACKEND`: `local` for local files or MinIO-compatible storage when configured.
-- `LLM_PROVIDER`, `LLM_MODEL`, `LLM_API_KEY`, `LLM_BASE_URL`: optional AI triage settings.
-- `SECRET_VERIFY_ENABLED`: opt-in live secret verification. When enabled, the scanner makes short outgoing verification requests and stores only redacted outcomes.
-
-Google OAuth callback URLs:
-
-- Local: `http://localhost:3000/api/auth/callback/google`
-- Production: `https://YOUR_DOMAIN/api/auth/callback/google`
-
-## Local Development
-
-Install and prepare the web app:
+### 3. Prepare and run the web app
 
 ```powershell
 cd apps\web
@@ -103,7 +122,15 @@ npx prisma db push
 npm run dev
 ```
 
-Start the API in another terminal:
+The web app runs at:
+
+```text
+http://localhost:3000
+```
+
+### 4. Prepare and run the API service
+
+Open a second terminal:
 
 ```powershell
 cd apps\api
@@ -113,14 +140,33 @@ python -m pip install -r requirements.txt
 python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-Open:
+Useful API URLs:
 
-- Web: `http://localhost:3000`
-- API docs: `http://localhost:8000/docs`
-- API health: `http://localhost:8000/health`
-- Engine health: `http://localhost:8000/health/engines`
+```text
+http://localhost:8000/docs
+http://localhost:8000/health
+http://localhost:8000/health/engines
+```
 
-For the common local path, keep these values in `.env`:
+### 5. Optional helper scripts
+
+From the repository root:
+
+```powershell
+.\dev.ps1
+```
+
+`dev.ps1` starts the API in a new PowerShell window and runs the Next.js development server in the current terminal.
+
+```powershell
+.\start-all.ps1
+```
+
+`start-all.ps1` also starts Celery worker and beat windows, so use it only after Redis/Celery settings are ready.
+
+## Environment Variables
+
+Common local values:
 
 ```env
 NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
@@ -130,68 +176,51 @@ STORAGE_BACKEND=local
 LOCAL_STORAGE_PATH=./storage
 ```
 
-The repository also includes helper scripts:
+Important variables:
 
-```powershell
-.\dev.ps1
-.\start-all.ps1
+- `DATABASE_URL`: MySQL URL used by Prisma. The example uses an Aiven-style MySQL template and must be given a real password.
+- `NEXTAUTH_URL`: local or production web origin.
+- `NEXTAUTH_SECRET`: strong secret for NextAuth sessions.
+- `NEXT_PUBLIC_API_BASE_URL`: FastAPI origin.
+- `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM`: required for real registration OTP email delivery.
+- `EMAIL_DEV_MODE`: development/test switch for mocked email flows.
+- `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`: optional Google OAuth credentials.
+- `SCAN_WORKER_MODE`: use `thread` for simple local runs or `celery` for Redis/Celery workers.
+- `STORAGE_BACKEND`: use `local` for local files or MinIO-compatible storage when configured.
+- `LLM_PROVIDER`, `LLM_MODEL`, `LLM_API_KEY`, `LLM_BASE_URL`: optional AI triage configuration.
+- `SECRET_VERIFY_ENABLED`: opt-in live secret verification. Keep this disabled unless the environment explicitly allows outgoing verification requests.
+
+Google OAuth callback URLs:
+
+```text
+Local:      http://localhost:3000/api/auth/callback/google
+Production: https://YOUR_DOMAIN/api/auth/callback/google
 ```
 
-`dev.ps1` starts the API in a new PowerShell window and runs the Next.js dev server in the current terminal. `start-all.ps1` also starts Celery worker and beat windows, so use it only after Redis/Celery settings are ready.
+Do not commit real database passwords, SMTP credentials, OAuth secrets, Redis tokens, MinIO secrets, or LLM API keys.
 
-## Authentication Flow
+## How to Use
 
-1. A user registers with email and password.
-2. The app hashes the password, creates an active user with `emailVerified = null`, stores a hashed 6-digit OTP, and sends the OTP through SMTP.
-3. The user submits the OTP on the registration page.
-4. A valid OTP sets `emailVerified`, consumes the OTP, signs the user in, and redirects to `/projects`.
+### Authentication
 
-OTP codes expire after 10 minutes, are stored only as hashes, and are rejected after 5 incorrect attempts.
+1. Register with an email address and password.
+2. The app creates the user, hashes the password, stores a hashed 6-digit OTP, and sends the OTP through SMTP.
+3. Enter the OTP on the verification screen.
+4. After verification, the app signs you in and redirects you to the dashboard.
 
-## API Overview
+OTP codes expire after 10 minutes and are rejected after 5 incorrect attempts.
 
-FastAPI routes are mounted under `/api/v1`.
+### Dashboard scan flow
 
-Common scanner endpoints:
+1. Create a project from the dashboard.
+2. Start a scan from a repository URL, uploaded archive, or pasted source input.
+3. Track scan progress through runtime events and status updates.
+4. Review findings by severity, confidence, category, source, sink, vulnerable function, and remediation guidance.
+5. Assign findings, leave comments, change status, request AI review when configured, and export reports.
 
-- `POST /api/v1/scans`: create and queue a scan.
-- `POST /api/v1/scans/guest`: create an unauthenticated guest scan with rate limiting.
-- `GET /api/v1/scans`: list recent scans.
-- `GET /api/v1/scans/{scan_id}`: read scan detail and findings.
-- `GET /api/v1/scans/{scan_id}/status`: poll scan status.
-- `GET /api/v1/scans/{scan_id}/findings`: page through findings.
-- `GET /api/v1/scans/{scan_id}/heatmap`: get file hotspot data.
-- `GET /api/v1/scans/{scan_id}/compare/{base_scan_id}`: compare two scans.
-- `GET /api/v1/scans/{scan_id}/export?format=json|sarif|pdf`: export a report.
-- `POST /api/v1/scans/{scan_id}/badge/publish`: publish a public badge for a completed scan.
-- `GET /api/v1/public/scan/{token}`: public badge view.
-- `POST /api/v1/uploads/init` and `POST /api/v1/uploads/complete`: archive upload flow.
+### CI scan flow
 
-The Next.js app also exposes protected proxy/API routes under `apps/web/app/api` for projects, scans, reports, findings, organizations, notifications, CI scans, and account operations.
-
-## Scanner Pipeline
-
-The backend scanner pipeline ingests the requested source and runs multiple stages:
-
-- SAST: Semgrep, Bandit, ESLint security checks, and custom OWASP pattern rules.
-- Dependency scan: Trivy-backed dependency vulnerability detection.
-- Secret scan: local secret detection with optional live verification.
-- Config scan: configuration and infrastructure-oriented checks from supported engines.
-- AI triage: optional OpenAI-compatible enrichment and confidence adjustment.
-
-Findings are normalized with fields such as `ruleId`, `scanCategory`, `source`, `sink`, `functionName`, `whyVulnerable`, `confidence`, `cvss4Score`, `dedupeHash`, and remediation content. The UI presents the aggregate score as `Risk Score`.
-
-## Scan Flow
-
-1. A dashboard, CI, guest, or upload flow creates a `Scan` row and a `queued` `ScanEvent`.
-2. FastAPI/worker resolves the source from a repository URL, uploaded archive, or pasted source.
-3. The scanner loads the project `ScannerPolicy` and logs runtime events for source resolution, engine start/completion/skips, AI triage completion/skips, report generation, and final status.
-4. Findings are normalized, deduplicated, risk-scored, saved, and surfaced in the scan report UI.
-5. Triage actions, comments, assignment, and AI review are stored in `FindingEvent` plus `AuditEvent`, then notifications are created where appropriate.
-
-## CI Usage
-
-Project API tokens are managed from the project token UI. Raw tokens are shown only at creation time; later the UI lists token metadata only.
+Project API tokens are managed from the project token UI. Raw tokens are shown only when they are created.
 
 Minimal CI trigger:
 
@@ -204,79 +233,68 @@ curl -X POST https://scanvul.ai/api/ci/scan `
 
 After the scan finishes, CI can fetch SARIF through the CI report endpoint for upload to GitHub code scanning.
 
-## Known Limitations
+### Visual reference
 
-- Organization-level scanner policy storage exists, but the worker currently applies project-level policy only.
-- Individual finding AI review requires `LLM_API_KEY`; without it the button is disabled.
-- CI scan trigger currently accepts JSON source metadata. Dashboard archive upload is the supported archive-to-scan path.
-- Web lint config is not installed; typecheck and Jest are the current frontend verification gates.
+The repository includes a product mockup at:
 
-## Useful Commands
+```text
+apps/web/public/scanvul-mockup.png
+```
 
-Frontend type check:
+You can use it in project pages or documentation that need a screenshot-style preview of the dashboard experience.
+
+## Roadmap
+
+- Enforce organization-level scanner policies in the worker pipeline.
+- Add more ready-to-copy CI templates for GitHub Actions and other providers.
+- Expand scanner coverage for additional languages and dependency ecosystems.
+- Improve recurring vulnerability analytics across projects and organizations.
+- Add stronger deployment automation and production health checks.
+- Improve visual documentation with current dashboard screenshots.
+
+## Contributing
+
+Contributions are welcome. A good contribution flow for this repository is:
+
+1. Create a feature branch.
+2. Keep changes scoped to one feature or fix.
+3. Update both Prisma and SQLAlchemy models when changing shared database tables.
+4. Add or update tests for behavior changes.
+5. Run the relevant verification commands before opening a pull request.
+6. Document new environment variables, routes, scripts, or scanner behavior in this README.
+
+Recommended quality checks before a pull request:
 
 ```powershell
 cd apps\web
 npx tsc --noEmit --pretty false
-```
-
-Frontend tests:
-
-```powershell
-cd apps\web
 npm test -- --runInBand
 ```
-
-Focused frontend test groups:
-
-```powershell
-cd apps\web
-npm run test:rbac
-npm run test:scan-workflow
-```
-
-Frontend build:
-
-```powershell
-cd apps\web
-npm run build
-```
-
-API tests:
 
 ```powershell
 cd apps\api
 python -m pytest
 ```
 
-API syntax check:
+## Credits
 
-```powershell
-cd apps\api
-python -m py_compile app\main.py
-```
+Project implementation: ScanVul AI contributors.
 
-## Docker
+Core technologies and tools used by this project:
 
-The compose file starts the web app, API, worker, Redis, MinIO, and database-related services.
+- [Next.js](https://nextjs.org/)
+- [React](https://react.dev/)
+- [TypeScript](https://www.typescriptlang.org/)
+- [Tailwind CSS](https://tailwindcss.com/)
+- [NextAuth.js](https://next-auth.js.org/)
+- [Prisma](https://www.prisma.io/)
+- [FastAPI](https://fastapi.tiangolo.com/)
+- [SQLAlchemy](https://www.sqlalchemy.org/)
+- [Semgrep](https://semgrep.dev/)
+- [Bandit](https://bandit.readthedocs.io/)
+- [Trivy](https://trivy.dev/)
+- [shields.io](https://shields.io/)
 
-```powershell
-docker compose up --build
-```
+## License
 
-Before using Docker, make sure `.env` database settings match `apps/web/prisma/schema.prisma`, which currently uses the Prisma `mysql` provider.
-
-## Deployment Notes
-
-- `render.yaml` is included for Render-style deployment configuration.
-- Set production `NEXTAUTH_URL`, `PUBLIC_BASE_URL`, `DATABASE_URL`, SMTP, storage, Redis, and LLM values in the hosting provider rather than committing them.
-- Use a strong `NEXTAUTH_SECRET`.
-- Keep `SECRET_VERIFY_ENABLED=false` unless live outgoing secret verification is explicitly approved for the environment.
-- The frontend build may need network access because `apps/web/app/layout.tsx` imports the Google Geist font through `next/font/google`.
-
-## Current Notes
-
-- Dashboard theme switching is intended for authenticated pages.
-- Login and register pages are intentionally forced to light mode.
-- Google OAuth is optional and should remain absent from the UI when Google env values are missing.
-- `.env.example` is a template only. Do not commit real database passwords, SMTP credentials, OAuth secrets, Redis tokens, MinIO secrets, or LLM API keys.
+This project is released under the MIT License. See [LICENSE](LICENSE) for details.
