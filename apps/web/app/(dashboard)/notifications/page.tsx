@@ -24,32 +24,40 @@ type NotificationItem = {
 export default function NotificationsPage() {
   const [items, setItems] = useState<NotificationItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [actingId, setActingId] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [filter, setFilter] = useState<"all" | "unread" | "scan" | "finding" | "team">("all");
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
 
-  const fetchNotifications = useCallback(async () => {
-    setLoading(true);
+  const fetchNotifications = useCallback(async (pageNum = 1, append = false) => {
+    if (pageNum === 1) setLoading(true); else setLoadingMore(true);
     setError("");
     try {
       const params = new URLSearchParams();
       if (filter === "unread") params.set("unread", "true");
       if (filter === "scan" || filter === "finding" || filter === "team") params.set("category", filter);
-      const res = await fetch(`/api/notifications${params.toString() ? `?${params.toString()}` : ""}`, { cache: "no-store" });
+      params.set("page", String(pageNum));
+      const res = await fetch(`/api/notifications?${params.toString()}`, { cache: "no-store" });
       const data = await res.json();
       if (!res.ok) {
         throw new Error(data.error || "Failed to load notifications");
       }
-      setItems(data.items ?? []);
+      setItems((prev) => append ? [...prev, ...(data.items ?? [])] : (data.items ?? []));
+      setTotalPages(data.totalPages ?? 1);
+      setPage(pageNum);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load notifications");
     } finally {
       setLoading(false);
+      setLoadingMore(false);
     }
   }, [filter]);
 
   useEffect(() => {
-    fetchNotifications();
+    setPage(1);
+    fetchNotifications(1, false);
   }, [fetchNotifications]);
 
   async function actionInvite(notificationId: string, action: "accept" | "reject") {
@@ -205,6 +213,25 @@ export default function NotificationsPage() {
               </Card>
             );
           })}
+        </div>
+      )}
+
+      {totalPages > 1 && page < totalPages && (
+        <div className="flex justify-center pt-2">
+          <button
+            onClick={() => fetchNotifications(page + 1, true)}
+            disabled={loadingMore}
+            className="rounded-lg border border-border px-5 py-2 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted disabled:opacity-50 transition-colors"
+          >
+            {loadingMore ? (
+              <span className="flex items-center gap-2">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Loading...
+              </span>
+            ) : (
+              `Load more (page ${page + 1} of ${totalPages})`
+            )}
+          </button>
         </div>
       )}
     </div>

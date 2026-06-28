@@ -4,22 +4,39 @@ import { requireActiveUser } from "@/lib/session";
 import { logAudit } from "@/lib/audit";
 import { accessibleProjectWhere } from "@/lib/access";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
     const user = await requireActiveUser();
-    const projects = await prisma.project.findMany({
-      where: user.roleGlobal === "admin" ? undefined : accessibleProjectWhere(user.id, "view"),
-      include: {
-        organization: { select: { id: true, name: true, slug: true } },
-        scans: {
-          orderBy: { createdAt: "desc" },
-          take: 1,
-        },
-      },
-      orderBy: { createdAt: "desc" },
-    });
+    const { searchParams } = new URL(req.url);
+    const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10));
+    const limit = Math.min(100, Math.max(1, parseInt(searchParams.get("limit") ?? "20", 10)));
 
-    return NextResponse.json({ items: projects });
+    const where = user.roleGlobal === "admin" ? undefined : accessibleProjectWhere(user.id, "view");
+
+    const [total, projects] = await Promise.all([
+      prisma.project.count({ where }),
+      prisma.project.findMany({
+        where,
+        include: {
+          organization: { select: { id: true, name: true, slug: true } },
+          scans: {
+            orderBy: { createdAt: "desc" },
+            take: 1,
+          },
+        },
+        orderBy: { createdAt: "desc" },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+    ]);
+
+    return NextResponse.json({
+      items: projects,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit) || 1,
+    });
   } catch (error) {
     if (error instanceof Error && error.message === "UNAUTHORIZED") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

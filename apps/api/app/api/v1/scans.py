@@ -23,7 +23,6 @@ Unified contract:
 
 import json
 import threading
-from collections import Counter
 from datetime import datetime
 from io import BytesIO
 import logging
@@ -314,7 +313,7 @@ def get_scan(scan_id: str, db: Session = Depends(get_db)):
     if scan is None:
         raise HTTPException(status_code=404, detail="Scan not found")
 
-    findings = db.scalars(select(Finding).where(Finding.scan_id == scan.id)).all()
+    findings = db.scalars(select(Finding).where(Finding.scan_id == scan.id).limit(200)).all()
 
     return ScanDetailResponse(
         id=scan.id,
@@ -457,11 +456,17 @@ def get_heatmap(scan_id: str, db: Session = Depends(get_db)):
     if scan is None:
         raise HTTPException(status_code=404, detail="Scan not found")
 
-    findings = db.scalars(select(Finding).where(Finding.scan_id == scan.id)).all()
-    counter = Counter(item.file_path for item in findings)
+    rows = db.execute(
+        select(Finding.file_path, func.count().label("cnt"))
+        .where(Finding.scan_id == scan.id)
+        .where(Finding.file_path.isnot(None))
+        .group_by(Finding.file_path)
+        .order_by(func.count().desc())
+        .limit(50)
+    ).all()
     return {
         "scanId": scan.id,
-        "files": [{"file": file_path, "count": count} for file_path, count in counter.items()],
+        "files": [{"file": row.file_path, "count": row.cnt} for row in rows],
     }
 
 
@@ -472,8 +477,8 @@ def compare_scans(scan_id: str, base_scan_id: str, db: Session = Depends(get_db)
     if current is None or base is None:
         raise HTTPException(status_code=404, detail="One of the scans was not found")
 
-    current_findings = db.scalars(select(Finding).where(Finding.scan_id == current.id)).all()
-    base_findings = db.scalars(select(Finding).where(Finding.scan_id == base.id)).all()
+    current_findings = db.scalars(select(Finding).where(Finding.scan_id == current.id).limit(500)).all()
+    base_findings = db.scalars(select(Finding).where(Finding.scan_id == base.id).limit(500)).all()
 
     current_keys = {(item.vuln_type, item.file_path, item.line_start or item.line_number) for item in current_findings}
     base_keys = {(item.vuln_type, item.file_path, item.line_start or item.line_number) for item in base_findings}
@@ -535,7 +540,7 @@ def publish_badge(scan_id: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail="Badge can only be published for completed scans")
 
     # Deactivate any existing active badges
-    existing = db.scalars(select(PublicBadge).where(PublicBadge.scan_id == scan_id)).all()
+    existing = db.scalars(select(PublicBadge).where(PublicBadge.scan_id == scan_id).limit(10)).all()
     for badge in existing:
         badge.is_active = "false"
     db.flush()
@@ -565,13 +570,13 @@ def public_scan(token: str, db: Session = Depends(get_db)):
     if scan is None:
         raise HTTPException(status_code=404, detail="Scan not found")
 
-    findings = db.scalars(select(Finding).where(Finding.scan_id == scan.id)).all()
+    findings_count = db.scalar(select(func.count()).select_from(Finding).where(Finding.scan_id == scan.id)) or 0
     return {
         "scanId": scan.id,
         "status": scan.status,
         "riskLevel": scan.risk_level,
         "riskPercent": scan.risk_percent,
-        "findingsCount": len(findings),
+        "findingsCount": findings_count,
     }
 
 

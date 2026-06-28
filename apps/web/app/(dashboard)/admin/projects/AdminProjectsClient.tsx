@@ -24,14 +24,17 @@ export function AdminProjectsClient() {
   const [projects, setProjects] = useState<ProjectItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
 
   const fetchProjects = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/admin/projects?search=${encodeURIComponent(search)}`);
+      const res = await fetch(`/api/admin/projects?search=${encodeURIComponent(search)}&page=${page}&limit=20`);
       if (res.ok) {
         const data = await res.json();
         setProjects(data.projects || []);
+        setTotalPages(data.totalPages ?? 1);
       }
     } catch (error) {
       console.error("Failed to fetch projects", error);
@@ -42,7 +45,7 @@ export function AdminProjectsClient() {
 
   useEffect(() => {
     fetchProjects();
-  }, []);
+  }, [page]);
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto">
@@ -66,9 +69,9 @@ export function AdminProjectsClient() {
           placeholder="Search project name or URL..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && fetchProjects()}
+          onKeyDown={(e) => { if (e.key === "Enter") { setPage(1); fetchProjects(); } }}
         />
-        <Button onClick={fetchProjects}>Search</Button>
+        <Button onClick={() => { setPage(1); fetchProjects(); }}>Search</Button>
       </div>
 
       <div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm">
@@ -125,6 +128,29 @@ export function AdminProjectsClient() {
               ))}
             </tbody>
           </table>
+        )}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between border-t border-border pt-4 mt-4 px-4 pb-4">
+            <p className="text-sm text-slate-400">
+              Page {page} of {totalPages}
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setPage(p => Math.max(1, p - 1))}
+                disabled={page === 1}
+                className="rounded-md border border-border px-3 py-1.5 text-sm font-medium disabled:opacity-40 hover:bg-muted"
+              >
+                Previous
+              </button>
+              <button
+                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                disabled={page === totalPages}
+                className="rounded-md border border-border px-3 py-1.5 text-sm font-medium disabled:opacity-40 hover:bg-muted"
+              >
+                Next
+              </button>
+            </div>
+          </div>
         )}
       </div>
     </div>

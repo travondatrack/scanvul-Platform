@@ -20,14 +20,17 @@ export function AdminUsersClient({ currentUserRole }: { currentUserRole: string 
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
 
   const fetchUsers = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/admin/users?search=${encodeURIComponent(search)}`);
+      const res = await fetch(`/api/admin/users?search=${encodeURIComponent(search)}&page=${page}&limit=20`);
       if (res.ok) {
         const data = await res.json();
         setUsers(data.users || []);
+        setTotalPages(data.totalPages ?? 1);
       }
     } catch (error) {
       console.error("Failed to fetch users", error);
@@ -38,7 +41,7 @@ export function AdminUsersClient({ currentUserRole }: { currentUserRole: string 
 
   useEffect(() => {
     fetchUsers();
-  }, []);
+  }, [page]);
 
   const handleStatusChange = async (userId: string, newStatus: string) => {
     setActionLoading(userId);
@@ -102,9 +105,9 @@ export function AdminUsersClient({ currentUserRole }: { currentUserRole: string 
           placeholder="Search name or email..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && fetchUsers()}
+          onKeyDown={(e) => { if (e.key === "Enter") { setPage(1); fetchUsers(); } }}
         />
-        <Button onClick={fetchUsers}>Search</Button>
+        <Button onClick={() => { setPage(1); fetchUsers(); }}>Search</Button>
       </div>
 
       <div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm">
@@ -189,6 +192,29 @@ export function AdminUsersClient({ currentUserRole }: { currentUserRole: string 
               })}
             </tbody>
           </table>
+        )}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between border-t border-border pt-4 mt-4 px-4 pb-4">
+            <p className="text-sm text-slate-400">
+              Page {page} of {totalPages}
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setPage(p => Math.max(1, p - 1))}
+                disabled={page === 1}
+                className="rounded-md border border-border px-3 py-1.5 text-sm font-medium disabled:opacity-40 hover:bg-muted"
+              >
+                Previous
+              </button>
+              <button
+                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                disabled={page === totalPages}
+                className="rounded-md border border-border px-3 py-1.5 text-sm font-medium disabled:opacity-40 hover:bg-muted"
+              >
+                Next
+              </button>
+            </div>
+          </div>
         )}
       </div>
     </div>

@@ -46,6 +46,7 @@ export async function GET(req: NextRequest) {
         revokedAt: null,
       },
       orderBy: { createdAt: "desc" },
+      take: 50,
     });
 
     return NextResponse.json(activeList);

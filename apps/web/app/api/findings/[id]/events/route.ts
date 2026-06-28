@@ -31,6 +31,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
         user: { select: { id: true, name: true, email: true, image: true } },
       },
       orderBy: { createdAt: "asc" },
+      take: 200,
     });
     return NextResponse.json(events);
   } catch (error) {

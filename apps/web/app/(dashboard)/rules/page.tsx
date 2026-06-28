@@ -59,7 +59,7 @@ export default function RulesPoliciesPage() {
   const [message, setMessage] = useState("");
 
   useEffect(() => {
-    fetch("/api/projects")
+    fetch("/api/projects?limit=100")
       .then((res) => res.json())
       .then((data) => {
         const items = data.items ?? [];
@@ -68,6 +68,7 @@ export default function RulesPoliciesPage() {
       })
       .finally(() => setLoading(false));
   }, []);
+
 
   useEffect(() => {
     if (!projectId) {

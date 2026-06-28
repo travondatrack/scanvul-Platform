@@ -25,15 +25,18 @@ export function AdminScansClient() {
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState("");
   const [cancellingId, setCancellingId] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
 
   const fetchScans = async () => {
     setLoading(true);
     try {
-      const url = statusFilter ? `/api/admin/scans?status=${statusFilter}` : `/api/admin/scans`;
+      const url = `/api/admin/scans?status=${statusFilter}&page=${page}&limit=20`;
       const res = await fetch(url);
       if (res.ok) {
         const data = await res.json();
         setScans(data.scans || []);
+        setTotalPages(data.totalPages ?? 1);
       }
     } catch (error) {
       console.error("Failed to fetch scans", error);
@@ -44,7 +47,7 @@ export function AdminScansClient() {
 
   useEffect(() => {
     fetchScans();
-  }, [statusFilter]);
+  }, [statusFilter, page]);
 
   const handleCancel = async (scanId: string) => {
     if (!confirm("Are you sure you want to force-cancel this stuck scan?")) return;
@@ -87,7 +90,7 @@ export function AdminScansClient() {
             key={st}
             size="sm"
             variant={statusFilter === st ? "default" : "outline"}
-            onClick={() => setStatusFilter(st)}
+            onClick={() => { setStatusFilter(st); setPage(1); }}
             className="capitalize text-xs"
           >
             {st || "All Statuses"}
@@ -176,6 +179,29 @@ export function AdminScansClient() {
               })}
             </tbody>
           </table>
+        )}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between border-t border-border pt-4 mt-4 px-4 pb-4">
+            <p className="text-sm text-slate-400">
+              Page {page} of {totalPages}
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setPage(p => Math.max(1, p - 1))}
+                disabled={page === 1}
+                className="rounded-md border border-border px-3 py-1.5 text-sm font-medium disabled:opacity-40 hover:bg-muted"
+              >
+                Previous
+              </button>
+              <button
+                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                disabled={page === totalPages}
+                className="rounded-md border border-border px-3 py-1.5 text-sm font-medium disabled:opacity-40 hover:bg-muted"
+              >
+                Next
+              </button>
+            </div>
+          </div>
         )}
       </div>
     </div>

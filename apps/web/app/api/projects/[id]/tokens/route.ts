@@ -28,6 +28,7 @@ export async function GET(req: NextRequest, { params }: Params) {
         lastUsedAt: true,
       },
       orderBy: { createdAt: "desc" },
+      take: 50,
     });
 
     return NextResponse.json(tokens);

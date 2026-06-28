@@ -25,6 +25,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
       where: { organizationId: id, status: "pending" },
       include: { inviter: { select: { id: true, name: true, email: true } } },
       orderBy: { createdAt: "desc" },
+      take: 100,
     });
     return NextResponse.json({ items });
   } catch (error) {

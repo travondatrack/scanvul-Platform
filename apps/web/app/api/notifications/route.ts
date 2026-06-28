@@ -7,6 +7,10 @@ import { requireActiveUser } from "@/lib/session";
 export async function GET(req: NextRequest) {
   try {
     const user = await requireActiveUser();
+    const { searchParams } = new URL(req.url);
+    const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10));
+    const limit = Math.min(200, Math.max(1, parseInt(searchParams.get("limit") ?? "50", 10)));
+
     const unreadOnly = req.nextUrl.searchParams.get("unread") === "true";
     const category = req.nextUrl.searchParams.get("category");
     const typeFilter =
@@ -15,21 +19,31 @@ export async function GET(req: NextRequest) {
       category === "team" ? ["team_invite", "invite_accepted", "invite_rejected", "member_left", "member_removed", "team_deleted"] :
       null;
 
-    const notifications = await prisma.notification.findMany({
-      where: {
-        userId: user.id,
-        ...(unreadOnly ? { status: "unread" } : {}),
-        ...(typeFilter ? { type: { in: typeFilter } } : {}),
-      },
-      orderBy: { createdAt: "desc" },
-      take: 50,
-    });
+    const where = {
+      userId: user.id,
+      ...(unreadOnly ? { status: "unread" } : {}),
+      ...(typeFilter ? { type: { in: typeFilter } } : {}),
+    };
+
+    const [total, notifications] = await Promise.all([
+      prisma.notification.count({ where }),
+      prisma.notification.findMany({
+        where,
+        orderBy: { createdAt: "desc" },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+    ]);
 
     return NextResponse.json({
       items: notifications.map((notification) => ({
         ...notification,
         payload: parseNotificationPayload(notification.payload),
       })),
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit) || 1,
     });
   } catch (error) {
     if (error instanceof Error && error.message === "UNAUTHORIZED") {

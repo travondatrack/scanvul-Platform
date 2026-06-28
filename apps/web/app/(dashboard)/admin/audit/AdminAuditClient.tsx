@@ -21,15 +21,18 @@ export function AdminAuditClient() {
   const [events, setEvents] = useState<AuditItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionFilter, setActionFilter] = useState("");
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
 
   const fetchEvents = async () => {
     setLoading(true);
     try {
-      const url = actionFilter ? `/api/admin/audit-events?action=${encodeURIComponent(actionFilter)}` : `/api/admin/audit-events`;
+      const url = `/api/admin/audit-events?action=${encodeURIComponent(actionFilter)}&page=${page}&limit=20`;
       const res = await fetch(url);
       if (res.ok) {
         const data = await res.json();
         setEvents(data.events || []);
+        setTotalPages(data.totalPages ?? 1);
       }
     } catch (error) {
       console.error("Failed to fetch audit events", error);
@@ -40,7 +43,7 @@ export function AdminAuditClient() {
 
   useEffect(() => {
     fetchEvents();
-  }, []);
+  }, [page]);
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto">
@@ -62,9 +65,9 @@ export function AdminAuditClient() {
           placeholder="Filter by action name (e.g. ADMIN_USER_LOCKED)..."
           value={actionFilter}
           onChange={(e) => setActionFilter(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && fetchEvents()}
+          onKeyDown={(e) => { if (e.key === "Enter") { setPage(1); fetchEvents(); } }}
         />
-        <Button onClick={fetchEvents}>Filter</Button>
+        <Button onClick={() => { setPage(1); fetchEvents(); }}>Filter</Button>
       </div>
 
       <div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm">
@@ -111,6 +114,29 @@ export function AdminAuditClient() {
               ))}
             </tbody>
           </table>
+        )}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between border-t border-border pt-4 mt-4 px-4 pb-4">
+            <p className="text-sm text-slate-400">
+              Page {page} of {totalPages}
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setPage(p => Math.max(1, p - 1))}
+                disabled={page === 1}
+                className="rounded-md border border-border px-3 py-1.5 text-sm font-medium disabled:opacity-40 hover:bg-muted"
+              >
+                Previous
+              </button>
+              <button
+                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                disabled={page === totalPages}
+                className="rounded-md border border-border px-3 py-1.5 text-sm font-medium disabled:opacity-40 hover:bg-muted"
+              >
+                Next
+              </button>
+            </div>
+          </div>
         )}
       </div>
     </div>

@@ -12,28 +12,45 @@ function slugify(value: string) {
     .slice(0, 64);
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
     const user = await requireActiveUser();
-    const organizations = await prisma.organization.findMany({
-      where: user.roleGlobal === "admin"
-        ? undefined
-        : { members: { some: { userId: user.id } } },
-      include: {
-        members: {
-          where: user.roleGlobal === "admin" ? undefined : { userId: user.id },
-          select: { role: true },
+    const { searchParams } = new URL(req.url);
+    const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10));
+    const limit = Math.min(100, Math.max(1, parseInt(searchParams.get("limit") ?? "20", 10)));
+
+    const where = user.roleGlobal === "admin"
+      ? undefined
+      : { members: { some: { userId: user.id } } };
+
+    const [total, organizations] = await Promise.all([
+      prisma.organization.count({ where }),
+      prisma.organization.findMany({
+        where,
+        include: {
+          members: {
+            where: user.roleGlobal === "admin" ? undefined : { userId: user.id },
+            select: { role: true },
+          },
         },
-      },
-      orderBy: { createdAt: "desc" },
-    });
+        orderBy: { createdAt: "desc" },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+    ]);
 
     const items = organizations.map(org => ({
       ...org,
       myRole: user.roleGlobal === "admin" ? "admin" : (org.members[0]?.role ?? "viewer")
     }));
 
-    return NextResponse.json({ items });
+    return NextResponse.json({
+      items,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit) || 1,
+    });
   } catch (error) {
     if (error instanceof Error && error.message === "UNAUTHORIZED") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

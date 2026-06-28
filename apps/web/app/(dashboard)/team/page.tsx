@@ -182,6 +182,49 @@ function MemberRow({
   );
 }
 
+const MEMBERS_PREVIEW = 5;
+
+function MembersList({
+  members,
+  orgId,
+  canManage,
+  onRefresh,
+}: {
+  members: Member[];
+  orgId: string;
+  canManage: boolean;
+  onRefresh: () => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const visible = expanded ? members : members.slice(0, MEMBERS_PREVIEW);
+  const hidden = members.length - MEMBERS_PREVIEW;
+
+  return (
+    <>
+      <div className="divide-y divide-border">
+        {visible.map((member) => (
+          <MemberRow
+            key={member.id}
+            member={member}
+            orgId={orgId}
+            canManage={canManage}
+            onRefresh={onRefresh}
+          />
+        ))}
+      </div>
+      {hidden > 0 && (
+        <button
+          onClick={() => setExpanded((e) => !e)}
+          className="w-full py-2.5 text-sm text-muted-foreground hover:text-foreground border-t border-border flex items-center justify-center gap-1.5 transition-colors hover:bg-muted/40"
+        >
+          <ChevronDown className={`w-4 h-4 transition-transform ${expanded ? "rotate-180" : ""}`} />
+          {expanded ? "Show less" : `View all ${members.length} members`}
+        </button>
+      )}
+    </>
+  );
+}
+
 export default function TeamPage() {
   const [orgs, setOrgs] = useState<Organization[]>([]);
   const [loading, setLoading] = useState(true);
@@ -331,18 +374,13 @@ export default function TeamPage() {
                 </div>
               </div>
 
-              {/* Members list */}
-              <div className="divide-y divide-border">
-                {org.members.map((member) => (
-                  <MemberRow
-                    key={member.id}
-                    member={member}
-                    orgId={org.id}
-                    canManage={canManageOrg(org)}
-                    onRefresh={fetchOrgs}
-                  />
-                ))}
-              </div>
+              {/* Members list – show first 5, expand on demand */}
+              <MembersList
+                members={org.members}
+                orgId={org.id}
+                canManage={canManageOrg(org)}
+                onRefresh={fetchOrgs}
+              />
 
               {canManageOrg(org) && org.invites && org.invites.length > 0 && (
                 <div className="border-t border-border p-5">

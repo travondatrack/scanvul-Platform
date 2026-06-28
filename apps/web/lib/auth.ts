@@ -19,9 +19,12 @@ function hasOAuthValue(value: string | undefined) {
     && !normalized.startsWith("change_me");
 }
 
+const getGoogleClientId = () => process.env.GOOGLE_CLIENT_ID || process.env.AUTH_GOOGLE_ID;
+const getGoogleClientSecret = () => process.env.GOOGLE_CLIENT_SECRET || process.env.AUTH_GOOGLE_SECRET;
+
 export const isGoogleAuthEnabled = (
-  hasOAuthValue(process.env.GOOGLE_CLIENT_ID)
-  && hasOAuthValue(process.env.GOOGLE_CLIENT_SECRET)
+  hasOAuthValue(getGoogleClientId() || "")
+  && hasOAuthValue(getGoogleClientSecret() || "")
 );
 
 const providers: NextAuthOptions["providers"] = [
@@ -85,8 +88,8 @@ const providers: NextAuthOptions["providers"] = [
 if (isGoogleAuthEnabled) {
   providers.push(
     GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID!,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+      clientId: getGoogleClientId()!,
+      clientSecret: getGoogleClientSecret()!,
       allowDangerousEmailAccountLinking: true,
       profile(profile) {
         if (!profile.email || profile.email_verified !== true) {
